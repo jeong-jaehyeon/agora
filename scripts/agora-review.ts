@@ -89,15 +89,32 @@ async function callWithRetry<T>(
 }
 
 export async function callClaude(diff: string): Promise<ReviewResult> {
+  const useBedrock = process.env.CLAUDE_USE_BEDROCK === '1'
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY가 설정되지 않았습니다. .env.agora 파일을 확인하세요.')
+
+  if (!useBedrock && !apiKey) {
+    throw new Error('ANTHROPIC_API_KEY 또는 CLAUDE_USE_BEDROCK=1이 필요합니다. .env.agora 파일을 확인하세요.')
+  }
 
   const { default: Anthropic } = await import('@anthropic-ai/sdk')
-  const client = new Anthropic({ apiKey })
+
+  let client: InstanceType<typeof Anthropic>
+  let model: string
+
+  if (useBedrock) {
+    const { AnthropicBedrock } = await import('@anthropic-ai/bedrock-sdk')
+    client = new AnthropicBedrock({
+      awsRegion: process.env.AWS_REGION || 'us-east-1',
+    }) as any
+    model = process.env.BEDROCK_MODEL || 'anthropic.claude-sonnet-4-20250514-v1:0'
+  } else {
+    client = new Anthropic({ apiKey })
+    model = 'claude-sonnet-4-20250514'
+  }
 
   const response = await callWithRetry(async () => {
     return client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model,
       max_tokens: 4096,
       messages: [{ role: 'user', content: REVIEW_PROMPT(diff) }],
       tools: [{

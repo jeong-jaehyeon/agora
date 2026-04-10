@@ -18,23 +18,53 @@ Agora는 3개 AI에게 동시에 코드 리뷰를 요청합니다.
 처음 사용이시네요! API 키를 하나씩 설정하겠습니다.
 ```
 
-**1) Claude API 키**
+**1) Claude API**
 
-사용자에게 안내합니다:
-- Anthropic 콘솔(https://console.anthropic.com)에서 API 키를 발급받을 수 있습니다
-- Claude Code 구독과는 별개입니다. API 키를 따로 만들어야 합니다.
-- "API 키를 입력해주세요 (sk-ant-로 시작합니다):"
+먼저 Bash로 로컬 환경을 스캔합니다:
+```
+echo "=== Claude 환경 스캔 ==="
+[ -n "$ANTHROPIC_API_KEY" ] && echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:0:10}..." || echo "ANTHROPIC_API_KEY: 없음"
+[ "$CLAUDE_CODE_USE_BEDROCK" = "1" ] && echo "BEDROCK: 사용 중" || echo "BEDROCK: 미사용"
+grep -h "ANTHROPIC_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
+```
 
-사용자가 키를 입력하면 `.env.agora`에 `ANTHROPIC_API_KEY=입력값`을 기록합니다.
+스캔 결과에 따라 안내합니다:
+
+- **Bedrock 사용 중인 경우** (`CLAUDE_CODE_USE_BEDROCK=1` 감지):
+  "AWS Bedrock 경유로 Claude를 사용하고 계시네요! Agora에서도 Bedrock으로 호출할까요?"
+  - 예 → `.env.agora`에 `CLAUDE_USE_BEDROCK=1` 기록. AWS 인증은 기존 환경(~/.aws/credentials 등)을 그대로 사용.
+  - 아니요 → Anthropic API 키 입력으로 진행
+
+- **ANTHROPIC_API_KEY 발견된 경우**:
+  "Anthropic API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
+  - 예 → `.env.agora`에 해당 키 기록
+  - 아니요 → 새 키 입력으로 진행
+
+- **둘 다 없는 경우**:
+  "Claude API 키를 찾지 못했습니다."
+  - Anthropic 콘솔(https://console.anthropic.com)에서 발급받을 수 있습니다
+  - Claude Code 구독과는 별개입니다. API 키를 따로 만들어야 합니다.
+  - "API 키를 입력해주세요 (sk-ant-로 시작합니다):"
+  - 입력하면 `.env.agora`에 `ANTHROPIC_API_KEY=입력값` 기록
 
 **2) Gemini API 키**
 
-사용자에게 안내합니다:
-- Google AI Studio(https://aistudio.google.com/apikey)에서 무료로 발급 가능합니다
-- Google 계정으로 로그인 후 "Create API key" 버튼을 누르면 됩니다
-- "API 키를 입력해주세요:"
+Bash로 로컬 환경을 스캔합니다:
+```
+echo "=== Gemini 환경 스캔 ==="
+[ -n "$GEMINI_API_KEY" ] && echo "GEMINI_API_KEY: ${GEMINI_API_KEY:0:10}..."
+[ -n "$GOOGLE_API_KEY" ] && echo "GOOGLE_API_KEY: ${GOOGLE_API_KEY:0:10}..."
+grep -h "GEMINI_API_KEY\|GOOGLE_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
+```
 
-사용자가 키를 입력하면 `.env.agora`에 `GEMINI_API_KEY=입력값`을 추가합니다.
+- **키 발견 시**: "Gemini API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
+  - 예 → `.env.agora`에 `GEMINI_API_KEY=해당키` 기록
+  - 아니요 → 새 키 입력
+
+- **키 없을 때**:
+  - Google AI Studio(https://aistudio.google.com/apikey)에서 무료로 발급 가능합니다
+  - "API 키를 입력해주세요:"
+  - 입력하면 `.env.agora`에 `GEMINI_API_KEY=입력값` 추가
 
 **3) GitHub Copilot**
 
@@ -55,13 +85,26 @@ COPILOT_MISSING이면: "`gh extension install github/gh-copilot`을 실행해주
 
 **4) GitLab 토큰 (선택)**
 
-사용자에게 안내합니다:
-- GitLab MR URL로 리뷰하려면 GitLab 토큰이 필요합니다
-- 로컬 git diff만 사용하려면 건너뛰어도 됩니다
-- "GitLab Private Token을 입력해주세요 (건너뛰려면 엔터):"
+Bash로 로컬 환경을 스캔합니다:
+```
+echo "=== GitLab 환경 스캔 ==="
+[ -n "$GITLAB_TOKEN" ] && echo "GITLAB_TOKEN: ${GITLAB_TOKEN:0:10}..."
+[ -n "$GITLAB_PRIVATE_TOKEN" ] && echo "GITLAB_PRIVATE_TOKEN: ${GITLAB_PRIVATE_TOKEN:0:10}..."
+grep -h "GITLAB_TOKEN\|GITLAB_PRIVATE_TOKEN" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
+```
 
-입력하면 `.env.agora`에 `GITLAB_TOKEN=입력값`을 추가합니다.
-건너뛰면 GITLAB_TOKEN 줄을 빈 값으로 추가합니다.
+추가로 Claude memory에 저장된 토큰이 있는지도 확인합니다. 있다면 사용자에게 알려줍니다.
+
+- **키 발견 시**: "GitLab 토큰이 이미 있습니다 ({앞 10자}...). 이 토큰을 사용할까요?"
+  - 예 → `.env.agora`에 `GITLAB_TOKEN=해당토큰` 기록
+  - 아니요 → 새 토큰 입력 또는 건너뛰기
+
+- **키 없을 때**:
+  - GitLab MR URL로 리뷰하려면 토큰이 필요합니다
+  - 로컬 git diff만 사용하려면 건너뛰어도 됩니다
+  - "GitLab Private Token을 입력해주세요 (건너뛰려면 엔터):"
+  - 입력하면 `.env.agora`에 `GITLAB_TOKEN=입력값` 추가
+  - 건너뛰면 빈 값으로 추가
 
 **셋업 완료 후:**
 
