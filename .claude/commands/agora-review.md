@@ -9,117 +9,136 @@ test -f /Users/wolgus104/Developer/agora2/.env.agora && echo "READY" || echo "NE
 
 ### NEEDS_SETUP인 경우 — 초기 셋업 대화
 
-사용자에게 다음과 같이 안내합니다:
+먼저 Bash로 로컬 환경을 한번에 스캔합니다:
+```
+echo "=== 로컬 환경 스캔 ==="
+echo "--- Claude ---"
+[ -n "$ANTHROPIC_API_KEY" ] && echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:0:10}..." || echo "ANTHROPIC_API_KEY: 없음"
+[ "$CLAUDE_CODE_USE_BEDROCK" = "1" ] && echo "BEDROCK: 사용 중" || echo "BEDROCK: 미사용"
+grep -h "ANTHROPIC_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
+echo "--- Gemini ---"
+[ -n "$GEMINI_API_KEY" ] && echo "GEMINI_API_KEY: ${GEMINI_API_KEY:0:10}..." || echo "GEMINI_API_KEY: 없음"
+[ -n "$GOOGLE_API_KEY" ] && echo "GOOGLE_API_KEY: ${GOOGLE_API_KEY:0:10}..." || echo "GOOGLE_API_KEY: 없음"
+grep -h "GEMINI_API_KEY\|GOOGLE_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
+echo "--- Copilot ---"
+gh auth status 2>&1 | head -3
+gh copilot --version 2>/dev/null && echo "COPILOT: 설치됨" || echo "COPILOT: 미설치"
+echo "--- GitLab ---"
+[ -n "$GITLAB_TOKEN" ] && echo "GITLAB_TOKEN: ${GITLAB_TOKEN:0:10}..." || echo "GITLAB_TOKEN: 없음"
+[ -n "$GITLAB_PRIVATE_TOKEN" ] && echo "GITLAB_PRIVATE_TOKEN: ${GITLAB_PRIVATE_TOKEN:0:10}..." || echo "GITLAB_PRIVATE_TOKEN: 없음"
+grep -h "GITLAB_TOKEN\|GITLAB_PRIVATE_TOKEN" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
+```
+
+추가로 Claude memory에 저장된 GitLab 토큰이 있는지도 확인합니다.
+
+스캔 결과를 요약해서 사용자에게 보여주고, AskUserQuestion으로 각 AI 설정을 확인합니다.
+
+**셋업 안내 메시지:**
 
 ```
 ━━━ Agora 초기 설정 ━━━━━━━━━━━━━━━━━━━━━━
 
 Agora는 3개 AI에게 동시에 코드 리뷰를 요청합니다.
-처음 사용이시네요! API 키를 하나씩 설정하겠습니다.
+처음 사용이시네요! 로컬 환경을 확인했습니다.
 ```
 
-**1) Claude API**
-
-먼저 Bash로 로컬 환경을 스캔합니다:
+그 다음 스캔 결과 요약을 표시합니다 (예시):
 ```
-echo "=== Claude 환경 스캔 ==="
-[ -n "$ANTHROPIC_API_KEY" ] && echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:0:10}..." || echo "ANTHROPIC_API_KEY: 없음"
-[ "$CLAUDE_CODE_USE_BEDROCK" = "1" ] && echo "BEDROCK: 사용 중" || echo "BEDROCK: 미사용"
-grep -h "ANTHROPIC_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
+🐶 Claude    — AWS Bedrock 경유 사용 중
+🐻 Gemini    — GOOGLE_API_KEY 발견 (AIzaSy...)
+🐱 Copilot   — 준비 완료 (로그인됨)
+📋 GitLab    — memory에 토큰 발견
 ```
 
-스캔 결과에 따라 안내합니다:
+**각 AI별 AskUserQuestion으로 확인:**
 
-- **Bedrock 사용 중인 경우** (`CLAUDE_CODE_USE_BEDROCK=1` 감지):
-  "AWS Bedrock 경유로 Claude를 사용하고 계시네요! Agora에서도 Bedrock으로 호출할까요?"
-  - 예 → `.env.agora`에 `CLAUDE_USE_BEDROCK=1` 기록. AWS 인증은 기존 환경(~/.aws/credentials 등)을 그대로 사용.
-  - 아니요 → Anthropic API 키 입력으로 진행
+각 AI 설정을 AskUserQuestion 도구를 사용해 하나씩 확인합니다.
 
-- **ANTHROPIC_API_KEY 발견된 경우**:
-  "Anthropic API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
-  - 예 → `.env.agora`에 해당 키 기록
-  - 아니요 → 새 키 입력으로 진행
+**1) Claude API** — 스캔 결과에 따라 선택지 구성:
 
-- **둘 다 없는 경우**:
-  "Claude API 키를 찾지 못했습니다."
-  - Anthropic 콘솔(https://console.anthropic.com)에서 발급받을 수 있습니다
-  - Claude Code 구독과는 별개입니다. API 키를 따로 만들어야 합니다.
-  - "API 키를 입력해주세요 (sk-ant-로 시작합니다):"
-  - 입력하면 `.env.agora`에 `ANTHROPIC_API_KEY=입력값` 기록
+- Bedrock 감지 시:
+  질문: "AWS Bedrock 경유로 Claude를 사용하고 계시네요. Agora에서도 Bedrock으로 호출할까요?"
+  선택지:
+  - A) Bedrock 사용 (기존 AWS 인증 그대로)
+  - B) Anthropic API 키 직접 입력
 
-**2) Gemini API 키**
+- ANTHROPIC_API_KEY 발견 시:
+  질문: "Anthropic API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
+  선택지:
+  - A) 이 키 사용
+  - B) 새 키 입력
 
-Bash로 로컬 환경을 스캔합니다:
-```
-echo "=== Gemini 환경 스캔 ==="
-[ -n "$GEMINI_API_KEY" ] && echo "GEMINI_API_KEY: ${GEMINI_API_KEY:0:10}..."
-[ -n "$GOOGLE_API_KEY" ] && echo "GOOGLE_API_KEY: ${GOOGLE_API_KEY:0:10}..."
-grep -h "GEMINI_API_KEY\|GOOGLE_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
-```
+- 둘 다 없을 때:
+  질문: "Claude API 키를 찾지 못했습니다. Anthropic 콘솔(https://console.anthropic.com)에서 발급받을 수 있습니다."
+  선택지:
+  - A) API 키 입력 (직접 입력)
+  - B) 건너뛰기 (Claude 없이 2개 AI로 진행)
 
-- **키 발견 시**: "Gemini API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
-  - 예 → `.env.agora`에 `GEMINI_API_KEY=해당키` 기록
-  - 아니요 → 새 키 입력
+**2) Gemini API** — 스캔 결과에 따라 선택지 구성:
 
-- **키 없을 때**:
-  - Google AI Studio(https://aistudio.google.com/apikey)에서 무료로 발급 가능합니다
-  - "API 키를 입력해주세요:"
-  - 입력하면 `.env.agora`에 `GEMINI_API_KEY=입력값` 추가
+- GEMINI_API_KEY 또는 GOOGLE_API_KEY 발견 시:
+  질문: "Gemini API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
+  선택지:
+  - A) 이 키 사용
+  - B) 새 키 입력
 
-**3) GitHub Copilot**
+- 없을 때:
+  질문: "Gemini API 키를 찾지 못했습니다. Google AI Studio(https://aistudio.google.com/apikey)에서 무료로 발급 가능합니다."
+  선택지:
+  - A) API 키 입력 (직접 입력)
+  - B) 건너뛰기 (Gemini 없이 진행)
 
-Bash로 인증 상태를 확인합니다:
-```
-gh auth status 2>&1 | head -3
-```
+**3) GitHub Copilot** — 자동 확인:
 
-- 인증되어 있으면: "GitHub Copilot 준비 완료!" 표시
-- 인증 안 되어 있으면: "`gh auth login`을 먼저 실행해주세요. 터미널에서 `! gh auth login`을 입력하면 됩니다." 안내
+- 인증 + 확장 모두 OK → "🐱 GitHub Copilot 준비 완료!" (선택지 없이 자동 진행)
+- 인증 안 됨 → AskUserQuestion:
+  질문: "GitHub Copilot을 사용하려면 인증이 필요합니다."
+  선택지:
+  - A) 지금 인증하기 (터미널에서 `! gh auth login` 실행 안내)
+  - B) 건너뛰기 (Copilot 없이 진행)
 
-Copilot 확장 설치 여부도 확인합니다:
-```
-gh copilot --version 2>/dev/null && echo "COPILOT_OK" || echo "COPILOT_MISSING"
-```
+- 확장 미설치 → AskUserQuestion:
+  질문: "GitHub Copilot CLI 확장이 설치되지 않았습니다."
+  선택지:
+  - A) 지금 설치하기 (`gh extension install github/gh-copilot` 실행)
+  - B) 건너뛰기
 
-COPILOT_MISSING이면: "`gh extension install github/gh-copilot`을 실행해주세요." 안내
+**4) GitLab 토큰** — 스캔 결과에 따라 선택지 구성:
 
-**4) GitLab 토큰 (선택)**
+- 환경변수 또는 memory에서 토큰 발견 시:
+  질문: "GitLab 토큰이 이미 있습니다 ({앞 10자}...). 이 토큰을 사용할까요?"
+  선택지:
+  - A) 이 토큰 사용
+  - B) 새 토큰 입력
+  - C) 건너뛰기 (로컬 git diff만 사용)
 
-Bash로 로컬 환경을 스캔합니다:
-```
-echo "=== GitLab 환경 스캔 ==="
-[ -n "$GITLAB_TOKEN" ] && echo "GITLAB_TOKEN: ${GITLAB_TOKEN:0:10}..."
-[ -n "$GITLAB_PRIVATE_TOKEN" ] && echo "GITLAB_PRIVATE_TOKEN: ${GITLAB_PRIVATE_TOKEN:0:10}..."
-grep -h "GITLAB_TOKEN\|GITLAB_PRIVATE_TOKEN" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
-```
-
-추가로 Claude memory에 저장된 토큰이 있는지도 확인합니다. 있다면 사용자에게 알려줍니다.
-
-- **키 발견 시**: "GitLab 토큰이 이미 있습니다 ({앞 10자}...). 이 토큰을 사용할까요?"
-  - 예 → `.env.agora`에 `GITLAB_TOKEN=해당토큰` 기록
-  - 아니요 → 새 토큰 입력 또는 건너뛰기
-
-- **키 없을 때**:
-  - GitLab MR URL로 리뷰하려면 토큰이 필요합니다
-  - 로컬 git diff만 사용하려면 건너뛰어도 됩니다
-  - "GitLab Private Token을 입력해주세요 (건너뛰려면 엔터):"
-  - 입력하면 `.env.agora`에 `GITLAB_TOKEN=입력값` 추가
-  - 건너뛰면 빈 값으로 추가
+- 없을 때:
+  질문: "GitLab MR URL로 리뷰하려면 토큰이 필요합니다. 로컬 git diff만 사용하려면 건너뛰어도 됩니다."
+  선택지:
+  - A) 토큰 입력 (직접 입력)
+  - B) 건너뛰기
 
 **셋업 완료 후:**
 
-`.env.agora` 파일을 Bash로 작성합니다. 그리고 사용자에게:
+모든 선택이 끝나면 Bash로 `.env.agora` 파일을 생성합니다.
+(사용자가 선택한 값들로 파일을 구성)
+
+그리고 설정 결과를 요약합니다:
 ```
 ━━━ 설정 완료! ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🐶 Claude API: 설정됨
-🐻 Gemini API: 설정됨
-🐱 GitHub Copilot: {상태}
-📋 GitLab: {설정됨 / 건너뜀}
+🐶 Claude: Bedrock 경유 / API 키 / 미설정
+🐻 Gemini: API 키 설정됨 / 미설정
+🐱 Copilot: 준비 완료 / 미설정
+📋 GitLab: 토큰 설정됨 / 건너뜀
 
+최소 2개 AI가 설정되어야 Agora를 사용할 수 있습니다.
 이제 리뷰를 시작할 수 있습니다!
 리뷰 대상을 알려주세요 (MR URL, 또는 바로 엔터를 치면 최근 변경사항을 리뷰합니다).
 ```
+
+만약 설정된 AI가 2개 미만이면:
+"최소 2개 AI가 필요합니다. 추가 설정이 필요합니다."로 안내하고 부족한 AI 설정으로 돌아갑니다.
 
 사용자가 리뷰 대상을 입력하면 아래 1단계부터 진행합니다.
 리뷰 대상 없이 셋업만 한 경우, 여기서 종료합니다.
