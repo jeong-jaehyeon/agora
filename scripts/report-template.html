@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agora Review — MR #131</title>
+<style>
+  :root, [data-theme="dark"] {
+    --bg: #0a0e14;
+    --surface: #12161f;
+    --surface2: #1a1f2e;
+    --surface3: #222838;
+    --border: #2a3040;
+    --border-hover: #3a4560;
+    --text: #e8edf5;
+    --text-muted: #7a8394;
+    --accent: #4b8ade;
+    --accent-dim: rgba(108,159,255,0.12);
+    --error: #ff6b6b;
+    --error-dim: rgba(255,107,107,0.12);
+    --warning: #ffc857;
+    --warning-dim: rgba(255,200,87,0.12);
+    --info: #6c9fff;
+    --info-dim: rgba(108,159,255,0.12);
+    --success: #4ecdc4;
+    --success-dim: rgba(78,205,196,0.12);
+    --claude: #e8a87c;
+    --gemini: #95d475;
+    --copilot: #7cc4fa;
+    --glass: rgba(18,22,31,0.7);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  [data-theme="light"] {
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --surface2: #f8f9fa;
+    --surface3: #eef0f3;
+    --border: #d1d5db;
+    --border-hover: #9ca3af;
+    --text: #111827;
+    --text-muted: #4b5563;
+    --accent: #2563eb;
+    --accent-dim: rgba(37,99,235,0.08);
+    --error: #dc2626;
+    --error-dim: rgba(220,38,38,0.08);
+    --warning: #b45309;
+    --warning-dim: rgba(180,83,9,0.08);
+    --info: #2563eb;
+    --info-dim: rgba(37,99,235,0.08);
+    --success: #059669;
+    --success-dim: rgba(5,150,105,0.08);
+    --claude: #9a5a2e;
+    --gemini: #2d7a0e;
+    --copilot: #1d4ed8;
+    --glass: rgba(255,255,255,0.85);
+  }
+
+  /* Light mode: add subtle shadow to cards instead of relying on border alone */
+  [data-theme="light"] .metric-card,
+  [data-theme="light"] .summary-card,
+  [data-theme="light"] .issue,
+  [data-theme="light"] .conflict-card,
+  [data-theme="light"] .actions-card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  [data-theme="light"] .theme-toggle {
+    background: var(--border);
+  }
+
+  [data-theme="light"] .theme-toggle .knob {
+    background: #ffffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header .logo { font-size: 22px; }
+  .header .subtitle { font-size: 13px; color: var(--text-muted); }
+
+  .nav-pills {
+    display: flex;
+    gap: 4px;
+  }
+
+  .nav-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    text-decoration: none;
+  }
+
+  .nav-pill:hover { background: var(--surface2); color: var(--text); }
+  .nav-pill.active { background: var(--accent-dim); color: var(--accent); }
+
+  /* ── Theme Toggle ── */
+  .theme-toggle {
+    width: 44px; height: 24px; border-radius: 12px;
+    background: var(--surface3); border: 1px solid var(--border);
+    cursor: pointer; position: relative; flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .theme-toggle .knob {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--text); position: absolute; top: 2px; left: 2px;
+    transition: transform 0.3s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+  }
+  [data-theme="light"] .theme-toggle .knob { transform: translateX(20px); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  /* ── Container ── */
+  .container { max-width: 920px; margin: 0 auto; padding: 28px 32px 80px; }
+
+  /* ── Dashboard ── */
+  .dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.4s ease;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .metric-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+  .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 8px; }
+  .metric-value { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  .metric-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  .severity-inline { display: flex; gap: 12px; align-items: baseline; }
+  .sev-item { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; }
+  .sev-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .sev-dot.e { background: var(--error); }
+  .sev-dot.w { background: var(--warning); }
+  .sev-dot.i { background: var(--info); }
+
+  .ai-chips { display: flex; gap: 6px; margin-top: 8px; }
+  .ai-chip {
+    font-size: 12px; padding: 3px 10px; border-radius: 14px;
+    border: 1px solid; display: flex; align-items: center; gap: 4px;
+  }
+  .ai-chip.c { border-color: rgba(232,168,124,0.4); color: var(--claude); }
+  .ai-chip.g { border-color: rgba(149,212,117,0.4); color: var(--gemini); }
+  .ai-chip.p { border-color: rgba(124,196,250,0.4); color: var(--copilot); }
+
+  /* ── MR Summary ── */
+  .summary-card {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.5s ease;
+  }
+
+  .summary-card h2 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+  .summary-card p { font-size: 14px; color: var(--text-muted); line-height: 1.8; }
+  .summary-card strong { color: var(--text); }
+
+  .file-tags { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .ftag {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px; padding: 3px 8px; border-radius: 4px;
+    background: var(--surface3); color: var(--accent); letter-spacing: -0.2px;
+  }
+
+  /* ── Section ── */
+  .section { margin-bottom: 32px; }
+
+  .section-title {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-muted);
+    margin-bottom: 14px; padding-left: 2px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .section-title .count {
+    font-size: 11px; padding: 1px 8px; border-radius: 10px;
+    background: var(--surface2); color: var(--text-muted);
+  }
+
+  /* ── File Group ── */
+  .fgroup { margin-bottom: 16px; }
+
+  .fgroup-name {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px; color: var(--accent); padding: 4px 0 8px;
+    font-weight: 500; display: flex; align-items: center; gap: 6px;
+  }
+
+  .fgroup-name::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 2px;
+    background: var(--accent); opacity: 0.5;
+  }
+
+  /* ── Issue ── */
+  .issue {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    overflow: hidden;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+  }
+
+  .issue:hover { border-color: var(--border-hover); }
+  .issue.e { border-left-color: var(--error); }
+  .issue.w { border-left-color: var(--warning); }
+  .issue.i { border-left-color: var(--info); }
+
+  .issue-top {
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+  }
+
+  .issue-top:hover { background: var(--surface2); }
+
+  .issue-chevron {
+    font-size: 10px; color: var(--text-muted);
+    transition: transform 0.2s;
+    flex-shrink: 0; width: 16px; text-align: center;
+  }
+
+  .issue.open .issue-chevron { transform: rotate(90deg); }
+
+  .sev-tag {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 3px; flex-shrink: 0; letter-spacing: 0.3px;
+  }
+  .sev-tag.e { background: var(--error-dim); color: var(--error); }
+  .sev-tag.w { background: var(--warning-dim); color: var(--warning); }
+  .sev-tag.i { background: var(--info-dim); color: var(--info); }
+
+  .issue-loc {
+    font-family: 'SF Mono', monospace; font-size: 11px;
+    color: var(--text-muted); flex-shrink: 0;
+  }
+
+  .issue-name { font-size: 13px; font-weight: 600; flex: 1; }
+
+  .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px;
+    flex-shrink: 0; white-space: nowrap;
+  }
+  .badge.consensus { background: var(--success-dim); color: var(--success); }
+  .badge.solo { background: var(--accent-dim); color: var(--accent); }
+
+  .issue-body {
+    display: none;
+    padding: 0 16px 14px 42px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .issue.open .issue-body { display: block; }
+
+  .issue-desc {
+    font-size: 13px; color: var(--text-muted); line-height: 1.7;
+    margin-bottom: 10px;
+  }
+
+  .issue-desc code {
+    font-family: 'SF Mono', monospace; font-size: 12px;
+    background: var(--surface3); padding: 1px 5px; border-radius: 3px;
+    color: var(--accent);
+  }
+
+  .issue-fix {
+    font-size: 13px; padding: 10px 14px; border-radius: 6px;
+    background: var(--success-dim); border: 1px solid rgba(78,205,196,0.15);
+    line-height: 1.6;
+  }
+
+  .issue-fix::before { content: '💡 '; }
+
+  /* ── Conflict ── */
+  .conflict-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--warning);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .conflict-top {
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .conflict-top .icon { font-size: 16px; }
+  .conflict-title { font-size: 13px; font-weight: 600; }
+
+  .conflict-body { padding: 0 16px 16px; }
+
+  .opinions { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+
+  .op {
+    padding: 10px 14px; border-radius: 6px; font-size: 13px;
+    background: var(--surface2); line-height: 1.6;
+  }
+
+  .op-name { font-weight: 600; margin-right: 4px; }
+  .op-name.c { color: var(--claude); }
+  .op-name.g { color: var(--gemini); }
+  .op-name.p { color: var(--copilot); }
+
+  .verdict {
+    padding: 14px 16px; border-radius: 8px; font-size: 13px;
+    background: linear-gradient(135deg, rgba(108,159,255,0.06) 0%, rgba(108,159,255,0.02) 100%);
+    border: 1px solid rgba(108,159,255,0.12);
+    line-height: 1.7;
+  }
+
+  .verdict-label {
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+  }
+
+  /* ── Info ── */
+  .info-item {
+    padding: 8px 0; font-size: 13px; color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .info-item:last-child { border-bottom: none; }
+  .info-item code {
+    font-family: 'SF Mono', monospace; font-size: 11px;
+    background: var(--surface2); padding: 1px 5px; border-radius: 3px; color: var(--accent);
+  }
+
+  /* ── Actions ── */
+  .actions-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .actions-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .actions-title { font-size: 13px; font-weight: 600; }
+
+  .progress-bar {
+    width: 120px; height: 4px; border-radius: 2px;
+    background: var(--surface3); overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--success);
+    transition: width 0.3s ease;
+  }
+
+  .progress-text { font-size: 11px; color: var(--text-muted); margin-left: 8px; }
+
+  .act {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background 0.15s;
+  }
+  .act:last-child { border-bottom: none; }
+  .act:hover { background: var(--surface2); }
+
+  .act input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: var(--success);
+    cursor: pointer; flex-shrink: 0;
+  }
+
+  .act.done .act-text { text-decoration: line-through; color: var(--text-muted); }
+  .act-sev { flex-shrink: 0; font-size: 14px; }
+  .act-text { font-size: 13px; }
+  .act-text strong { font-weight: 600; }
+
+  /* ── Filter Bar ── */
+  .filter-bar {
+    display: flex; gap: 6px; margin-bottom: 14px;
+  }
+
+  .filter-btn {
+    padding: 5px 12px; border-radius: 14px; font-size: 12px;
+    border: 1px solid var(--border); background: none; color: var(--text-muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+
+  .filter-btn:hover { border-color: var(--border-hover); color: var(--text); }
+  .filter-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center; color: var(--text-muted); font-size: 11px;
+    margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border);
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .anim { animation: fadeUp 0.4s ease both; }
+  .anim-1 { animation-delay: 0.05s; }
+  .anim-2 { animation-delay: 0.1s; }
+  .anim-3 { animation-delay: 0.15s; }
+  .anim-4 { animation-delay: 0.2s; }
+  .anim-5 { animation-delay: 0.25s; }
+  .anim-6 { animation-delay: 0.3s; }
+
+  /* ── Scroll offset for sticky header ── */
+  [id] { scroll-margin-top: 80px; }
+
+  /* ── Expand/Collapse toggle ── */
+  .toggle-all {
+    font-size: 12px; color: var(--text-muted); cursor: pointer;
+    background: none; border: 1px solid var(--border); padding: 4px 10px;
+    border-radius: 12px; transition: all 0.15s;
+  }
+  .toggle-all:hover { border-color: var(--border-hover); color: var(--text); }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .header { padding: 12px 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .nav-pills { width: 100%; overflow-x: auto; }
+    .container { padding: 16px 16px 60px; }
+    .dashboard { grid-template-columns: 1fr; }
+    .metric-card { padding: 14px 16px; }
+    .metric-value { font-size: 22px; }
+    .summary-card { padding: 18px 20px; }
+    .issue-top { padding: 10px 12px; flex-wrap: wrap; }
+    .issue-name { min-width: 0; }
+    .filter-bar { overflow-x: auto; flex-wrap: nowrap; }
+    .ai-chips { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sticky Header with Nav -->
+<div class="header">
+  <div class="header-left">
+    <span class="logo">🐙</span>
+    <div>
+      <h1>Agora Review</h1>
+      <div class="subtitle">MR #131 — 빌드 머신 is_busy 고착 수정 및 Stop All Builds</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <nav class="nav-pills">
+      <a class="nav-pill active" href="#summary">요약</a>
+      <a class="nav-pill" href="#issues">이슈</a>
+      <a class="nav-pill" href="#conflicts">충돌</a>
+      <a class="nav-pill" href="#actions">액션</a>
+    </nav>
+    <div class="theme-toggle" onclick="toggleTheme()" title="다크/라이트 모드 전환">
+      <div class="knob" id="themeKnob">🌙</div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Dashboard -->
+  <div class="dashboard anim">
+    <div class="metric-card">
+      <div class="metric-label">발견된 이슈</div>
+      <div class="metric-value">10</div>
+      <div class="severity-inline metric-sub">
+        <span class="sev-item"><span class="sev-dot e"></span>1</span>
+        <span class="sev-item"><span class="sev-dot w"></span>6</span>
+        <span class="sev-item"><span class="sev-dot i"></span>3</span>
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">AI 합의</div>
+      <div class="metric-value" style="color: var(--success)">3</div>
+      <div class="metric-sub">고유 5건 · 충돌 1건</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">참여 AI</div>
+      <div class="ai-chips">
+        <span class="ai-chip c">🐶 Claude</span>
+        <span class="ai-chip g">🐻 Gemini</span>
+        <span class="ai-chip p">🐱 Copilot</span>
+      </div>
+      <div class="metric-sub">6 files · 302 lines</div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-card anim anim-1" id="summary">
+    <h2>📋 이 MR은 뭘 바꾸나요?</h2>
+    <p>
+      주방에서 여러 요리(빌드)가 동시에 진행될 때, <strong>"모든 불 끄기" 비상 버튼</strong>을 추가하고,
+      가스불은 꺼졌는데 "사용 중" 표시등이 켜져있는 <strong>고장난 표시등을 60초마다 자동 점검해서 리셋</strong>하는
+      시스템을 도입한 MR입니다.
+    </p>
+    <div class="file-tags">
+      <span class="ftag">build-result-controller.ts</span>
+      <span class="ftag">build-result-route.ts</span>
+      <span class="ftag">build-result-service.ts</span>
+      <span class="ftag">validator.ts</span>
+      <span class="ftag">build-result-poller.ts</span>
+      <span class="ftag">build-status.ts</span>
+    </div>
+  </div>
+
+  <!-- Issues -->
+  <div class="section anim anim-2" id="issues">
+    <div class="section-title">
+      수정이 필요한 것들 <span class="count">7</span>
+      <button class="toggle-all" onclick="toggleAll()">전체 펼치기</button>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">전체</button>
+      <button class="filter-btn" data-filter="e">🔴 Error</button>
+      <button class="filter-btn" data-filter="w">🟡 Warning</button>
+      <button class="filter-btn" data-filter="consensus">👥 합의만</button>
+    </div>
+
+    <!-- validator.ts -->
+    <div class="fgroup">
+      <div class="fgroup-name">src/middlewares/validator.ts</div>
+
+      <div class="issue e open" data-sev="e" data-consensus="true">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag e">error</span>
+          <span class="issue-loc">:203</span>
+          <span class="issue-name">권한 체크를 위해 경로/메서드를 위조</span>
+          <span class="badge consensus">합의 3/3</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">
+            <code>stop-all</code> POST 요청을 기존 <code>GET /:id/stop</code>인 것처럼 path와 method를 바꿔치기해서 권한 체크.
+            라우트가 변경되면 권한 체크가 조용히 깨집니다.
+          </div>
+          <div class="issue-fix">stop-all 전용 권한을 roleStore에 직접 등록. 또는 상수 매핑으로 관리.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- build-result-poller.ts -->
+    <div class="fgroup">
+      <div class="fgroup-name">src/service/build-result-poller.ts</div>
+
+      <div class="issue w" data-sev="w" data-consensus="true">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag w">warning</span>
+          <span class="issue-loc">:295, 335</span>
+          <span class="issue-name">N+1 쿼리 (reconcile 두 함수 모두)</span>
+          <span class="badge consensus">합의 3/3</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">
+            <code>reconcileBusyMachines</code>에서 머신마다 findOne 2회, <code>reconcileStuckQueues</code>에서 큐마다 findOne 1회.
+            busy 머신 50개면 최대 150회 개별 쿼리가 발생합니다.
+          </div>
+          <div class="issue-fix">루프 전에 Op.in으로 일괄 조회 후 메모리에서 매칭.</div>
+        </div>
+      </div>
+
+      <div class="issue w" data-sev="w" data-consensus="true">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag w">warning</span>
+          <span class="issue-loc">:351</span>
+          <span class="issue-name">any 타입 사용</span>
+          <span class="badge consensus">합의 3/3</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">
+            <code>reconcileSingleQueue(queue: any)</code>, <code>whereClause: any</code>.
+            필드 오타나 구조 변경 시 런타임 에러로 이어집니다.
+          </div>
+          <div class="issue-fix">BuildQueueRow 인터페이스를 정의해서 명시적 타이핑.</div>
+        </div>
+      </div>
+
+      <div class="issue w" data-sev="w" data-consensus="false">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag w">warning</span>
+          <span class="issue-loc">:57</span>
+          <span class="issue-name">정합성 검사 중복 실행 위험</span>
+          <span class="badge solo">🐱 Copilot</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">
+            폴링 간격 2초인데 reconcile이 2초 이상 걸리면 다음 사이클에서 동시 실행됩니다. DB 트랜잭션 충돌 가능.
+          </div>
+          <div class="issue-fix">isReconciling 플래그로 보호. finally() 블록에서 해제.</div>
+        </div>
+      </div>
+
+      <div class="issue w" data-sev="w" data-consensus="false">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag w">warning</span>
+          <span class="issue-loc">:57</span>
+          <span class="issue-name">reconcileCounter 리셋 없음</span>
+          <span class="badge solo">🐶 Claude</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">
+            카운터가 계속 증가만 함. 실질적 문제까지 수년이지만 간단히 개선 가능.
+          </div>
+          <div class="issue-fix">(reconcileCounter + 1) % RECONCILE_INTERVAL_COUNT로 리셋.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- build-result-service.ts -->
+    <div class="fgroup">
+      <div class="fgroup-name">src/apis/v1/build-result/build-result-service.ts</div>
+
+      <div class="issue w" data-sev="w" data-consensus="false">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag w">warning</span>
+          <span class="issue-loc">:581</span>
+          <span class="issue-name">최대 100개 동시 중지 요청</span>
+          <span class="badge solo">🐻 Gemini</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">
+            Promise.allSettled로 100개를 한번에 Jenkins에 요청. 트래픽 폭주 위험이 있습니다.
+          </div>
+          <div class="issue-fix">p-limit 또는 5-10개씩 청크 처리로 동시성 제한.</div>
+        </div>
+      </div>
+
+      <div class="issue w" data-sev="w" data-consensus="false">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag w">warning</span>
+          <span class="issue-loc">:553</span>
+          <span class="issue-name">서비스 레이어에서 배열 크기 미검증</span>
+          <span class="badge solo">🐱 Copilot</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">
+            최대 100개 제한은 라우트 미들웨어에만 존재. 내부에서 직접 호출하면 무제한입니다.
+          </div>
+          <div class="issue-fix">서비스 함수 입구에서도 MAX_IDS 체크 추가.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conflicts -->
+  <div class="section anim anim-3" id="conflicts">
+    <div class="section-title">의견이 갈린 것들 <span class="count">1</span></div>
+
+    <div class="conflict-card">
+      <div class="conflict-top">
+        <span class="icon">⚡</span>
+        <div>
+          <div class="conflict-title">build-result-route.ts:17 — NODE_ENV !== 'live' 조건</div>
+        </div>
+      </div>
+      <div class="conflict-body">
+        <div class="opinions">
+          <div class="op"><span class="op-name g">🐻 Gemini</span> production 같은 표준 명칭 또는 피처 플래그 사용 권장</div>
+          <div class="op"><span class="op-name p">🐱 Copilot</span> NODE_ENV=production이면 조건이 true가 되어 프로덕션에 API 노출 위험</div>
+          <div class="op"><span class="op-name c">🐶 Claude</span> TOVICE는 local/dev/test/live 4단계 환경 사용. 'live'가 곧 production.</div>
+        </div>
+        <div class="verdict">
+          <div class="verdict-label">🐙 MC 판정</div>
+          이슈 아님. Gemini/Copilot은 일반적인 Node.js 관례로 판단했지만,
+          TOVICE 프로젝트는 자체 환경 체계(local, dev, test, live)를 사용합니다.
+          'live'가 이 프로젝트의 production입니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="section anim anim-4">
+    <div class="section-title">참고만 하세요 <span class="count">3</span></div>
+    <div class="info-item">🔵 <code>build-result-route.ts:17</code> NODE_ENV 대신 피처 플래그 사용도 고려 가능 <span class="badge solo">🐻</span></div>
+    <div class="info-item">🔵 <code>build-result-poller.ts</code> reconcile 로직의 매직넘버(10분, 60초) 상수화 권장 <span class="badge solo">🐶</span></div>
+    <div class="info-item">🔵 <code>build-result-service.ts</code> stopAllBuilds 결과에 실패한 빌드 ID 목록도 포함하면 디버깅 유리 <span class="badge solo">🐶</span></div>
+  </div>
+
+  <!-- Actions -->
+  <div class="section anim anim-5" id="actions">
+    <div class="section-title">액션 아이템</div>
+    <div class="actions-card">
+      <div class="actions-header">
+        <span class="actions-title">할 일 목록</span>
+        <div style="display:flex;align-items:center;">
+          <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+          <span class="progress-text" id="progressText">0/6</span>
+        </div>
+      </div>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🔴</span><span class="act-text"><strong>validator.ts</strong> — stop-all 전용 권한을 roleStore에 등록</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-poller.ts</strong> — N+1 쿼리를 Op.in 일괄 조회로 변경</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-poller.ts</strong> — any 타입을 인터페이스로 교체</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-poller.ts</strong> — 중복 실행 방지 플래그 추가</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-service.ts</strong> — 동시 중지 요청 청크 처리</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-service.ts</strong> — 서비스 레이어 배열 크기 검증</span></label>
+    </div>
+  </div>
+
+  <div class="footer">
+    Generated by Agora · 2026-04-10 · Claude + Gemini + Copilot
+  </div>
+</div>
+
+<script>
+function toggleIssue(el) {
+  el.closest('.issue').classList.toggle('open')
+}
+
+function updateProgress() {
+  const all = document.querySelectorAll('.act input')
+  const checked = document.querySelectorAll('.act input:checked')
+  const pct = (checked.length / all.length * 100).toFixed(0)
+  document.getElementById('progressFill').style.width = pct + '%'
+  document.getElementById('progressText').textContent = checked.length + '/' + all.length
+  all.forEach(cb => cb.closest('.act').classList.toggle('done', cb.checked))
+}
+
+// Theme toggle
+function toggleTheme() {
+  const html = document.documentElement
+  const current = html.getAttribute('data-theme') || 'dark'
+  const next = current === 'dark' ? 'light' : 'dark'
+  html.setAttribute('data-theme', next)
+  document.getElementById('themeKnob').textContent = next === 'dark' ? '🌙' : '☀️'
+}
+
+// Toggle all expand/collapse
+let allExpanded = false
+function toggleAll() {
+  allExpanded = !allExpanded
+  document.querySelectorAll('.issue').forEach(issue => {
+    issue.classList.toggle('open', allExpanded)
+  })
+  document.querySelector('.toggle-all').textContent = allExpanded ? '전체 접기' : '전체 펼치기'
+}
+
+// Filter (with empty file group hiding)
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    const f = btn.dataset.filter
+    document.querySelectorAll('.issue').forEach(issue => {
+      if (f === 'all') { issue.style.display = '' }
+      else if (f === 'consensus') { issue.style.display = issue.dataset.consensus === 'true' ? '' : 'none' }
+      else { issue.style.display = issue.dataset.sev === f ? '' : 'none' }
+    })
+    // Hide empty file groups
+    document.querySelectorAll('.fgroup').forEach(fg => {
+      const visible = fg.querySelectorAll('.issue:not([style*="display: none"])')
+      fg.style.display = visible.length === 0 ? 'none' : ''
+    })
+  })
+})
+
+// Smooth scroll
+document.querySelectorAll('.nav-pill').forEach(pill => {
+  pill.addEventListener('click', e => {
+    e.preventDefault()
+    document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'))
+    pill.classList.add('active')
+    const target = document.querySelector(pill.getAttribute('href'))
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+})
+</script>
+</body>
+</html>
