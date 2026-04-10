@@ -1,0 +1,22 @@
+{
+  "name": "agora",
+  "version": "0.1.0",
+  "description": "멀티 AI 코드 리뷰 & 토론 오케스트레이터",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "review": "tsx scripts/agora-review.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.24.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
