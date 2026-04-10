@@ -9,12 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
-    "@anthropic-ai/bedrock-sdk": "^0.28.0",
-    "@google/generative-ai": "^0.24.0",
-    "dotenv": "^16.4.7"
-  },
+  "dependencies": {},
   "devDependencies": {
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
