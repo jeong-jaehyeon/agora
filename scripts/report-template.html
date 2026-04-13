@@ -335,6 +335,17 @@
   .issue-code pre .diff-add { background: rgba(78,205,196,0.1); display: block; }
   .issue-code pre .diff-del { background: rgba(255,107,107,0.1); display: block; }
 
+  /* ── Before/After Code Comparison ── */
+  .code-comparison { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .code-before, .code-after { border-radius: 6px; padding: 10px 14px; font-size: 12px; line-height: 1.5; overflow-x: auto; }
+  .code-before { background: rgba(255,107,107,0.06); border: 1px solid rgba(255,107,107,0.15); }
+  .code-after { background: rgba(78,205,196,0.06); border: 1px solid rgba(78,205,196,0.15); }
+  .code-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600; }
+  .code-before .code-label { color: var(--error); }
+  .code-after .code-label { color: var(--success); }
+  .code-comparison pre { margin: 0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; white-space: pre-wrap; }
+  .code-comparison code { color: var(--text); }
+
   /* ── Conflict ── */
   .conflict-card {
     background: var(--surface);
@@ -512,6 +523,7 @@
     .issue-name { min-width: 0; }
     .filter-bar { overflow-x: auto; flex-wrap: nowrap; }
     .ai-chips { flex-wrap: wrap; }
+    .code-comparison { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -627,6 +639,23 @@
 <span class="diff-add">+    path = '/build-results/:id/stop'</span>
 <span class="diff-add">+    method = 'GET'</span>
 <span class="diff-add">+  }</span></code></pre>
+          </div>
+          <div class="code-comparison">
+            <div class="code-before">
+              <div class="code-label">현재 코드</div>
+              <pre><code>let method = req.method
+if (path === '/build-results/stop-all') {
+  path = '/build-results/:id/stop'
+  method = 'GET'
+}</code></pre>
+            </div>
+            <div class="code-after">
+              <div class="code-label">💡 개선안</div>
+              <pre><code>// roleStore에 stop-all 전용 권한 등록
+// 경로 변조 없이 원래 path로 권한 체크
+const hasPermission = await roleStore
+  .checkPermission(user.id, path, method)</code></pre>
+            </div>
           </div>
         </div>
       </div>

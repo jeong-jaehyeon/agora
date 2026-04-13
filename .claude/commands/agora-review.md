@@ -30,12 +30,12 @@ echo "--- Claude ---"
 [ -n "$ANTHROPIC_MODEL" ] && echo "MODEL: $ANTHROPIC_MODEL" || echo "MODEL: 감지 안 됨"
 grep -h "ANTHROPIC_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
 echo "--- Gemini ---"
-[ -n "$GEMINI_API_KEY" ] && echo "GEMINI_API_KEY: ${GEMINI_API_KEY:0:10}..." || echo "GEMINI_API_KEY: 없음"
-[ -n "$GOOGLE_API_KEY" ] && echo "GOOGLE_API_KEY: ${GOOGLE_API_KEY:0:10}..." || echo "GOOGLE_API_KEY: 없음"
-grep -h "GEMINI_API_KEY\|GOOGLE_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
+which gemini 2>/dev/null && echo "GEMINI_CLI: 설치됨" || echo "GEMINI_CLI: 미설치"
+gemini --version 2>/dev/null | head -1 || true
 echo "--- Copilot ---"
+which gh 2>/dev/null && echo "GH_CLI: 설치됨" || echo "GH_CLI: 미설치"
 gh auth status 2>&1 | head -3
-gh copilot --version 2>/dev/null && echo "COPILOT: 설치됨" || echo "COPILOT: 미설치"
+gh copilot --version 2>/dev/null && echo "COPILOT_EXT: 설치됨" || echo "COPILOT_EXT: 미설치"
 echo "--- GitLab ---"
 [ -n "$GITLAB_TOKEN" ] && echo "GITLAB_TOKEN: ${GITLAB_TOKEN:0:10}..." || echo "GITLAB_TOKEN: 없음"
 [ -n "$GITLAB_PRIVATE_TOKEN" ] && echo "GITLAB_PRIVATE_TOKEN: ${GITLAB_PRIVATE_TOKEN:0:10}..." || echo "GITLAB_PRIVATE_TOKEN: 없음"
@@ -49,8 +49,8 @@ grep -h "GITLAB_TOKEN\|GITLAB_PRIVATE_TOKEN" ~/.zshrc ~/.bashrc 2>/dev/null | gr
 ━━━ 로컬 환경 스캔 결과 ━━━━━━━━━━━━━━━━━━
 
 🐶 Claude    — {Bedrock 사용 중 / API 키 발견 / 없음}
-🐻 Gemini    — {키 발견 / 없음}
-🐱 Copilot   — {준비 완료 / 인증 필요 / 미설치}
+🐻 Gemini    — {CLI 설치됨 / CLI 미설치}
+🐱 Copilot   — {준비 완료 / gh 미설치 / 인증 필요 / 확장 미설치}
 📋 GitLab    — {토큰 발견 / 없음}
 
 각 AI 설정을 확인할게요.
@@ -78,46 +78,56 @@ grep -h "GITLAB_TOKEN\|GITLAB_PRIVATE_TOKEN" ~/.zshrc ~/.bashrc 2>/dev/null | gr
   - A) API 키 입력 (직접 입력)
   - B) 건너뛰기 (Claude 리뷰어 없이 2개 AI로 진행. MC 역할은 Claude Code가 계속 수행)
 
-**2) Gemini API** — 스캔 결과에 따라 선택지 구성:
+**2) Gemini CLI** — 스캔 결과에 따라 선택지 구성:
 
-- GEMINI_API_KEY 또는 GOOGLE_API_KEY 발견 시:
-  질문: "Gemini API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
+- gemini CLI 설치됨:
+  질문: "Gemini CLI가 설치되어 있습니다. 이대로 사용할까요?"
   선택지:
-  - A) 이 키 사용 (권장)
-  - B) 새 키 입력
+  - A) 이대로 사용 (권장)
+  - B) 건너뛰기 (Gemini 없이 진행)
 
-  키 사용 확정 후 모델 선택:
+  A 선택 시 모델 선택:
   질문: "Gemini 모델을 선택해주세요."
   선택지:
   - A) Gemini 2.0 Flash (권장, 빠르고 무료)
   - B) Gemini 2.5 Pro (더 정확, 유료 플랜 필요할 수 있음)
   - C) Gemini 2.5 Flash (균형형)
 
-- 없을 때:
-  질문: "Gemini API 키를 찾지 못했습니다. Google AI Studio(https://aistudio.google.com/apikey)에서 무료로 발급 가능합니다."
+  .env.agora에 GEMINI_MODEL=선택한모델 저장
+
+- gemini CLI 미설치:
+  질문: "Gemini CLI가 설치되지 않았습니다. 설치하시겠어요?"
   선택지:
-  - A) API 키 입력 (직접 입력)
+  - A) 설치 방법 안내 ("https://github.com/google-gemini/gemini-cli 에서 설치 방법을 확인하세요. 설치 후 `gemini auth login`으로 인증하고 `/agora-setup`으로 다시 설정하면 됩니다.")
   - B) 건너뛰기 (Gemini 없이 진행)
 
-**3) GitHub Copilot** — 스캔 결과에 따라 선택지 구성:
+**3) GitHub Copilot** — 스캔 결과에 따라 단계별 선택지 구성:
 
-- 인증 + 확장 모두 OK:
+- gh CLI 미설치 (GH_CLI: 미설치):
+  질문: "GitHub CLI(gh)가 설치되지 않았습니다. Copilot을 사용하려면 먼저 gh CLI가 필요합니다."
+  선택지:
+  - A) 설치 방법 안내 ("`brew install gh`를 터미널에서 실행해주세요. 설치 후 `/agora-setup`으로 다시 설정하면 됩니다.")
+  - B) 건너뛰기 (Copilot 없이 진행. Claude + Gemini 2개로도 리뷰 가능합니다.)
+
+- gh 설치됨 + 인증 안 됨:
+  질문: "GitHub CLI는 있지만 로그인이 필요합니다."
+  선택지:
+  - A) 지금 인증하기 ("터미널에서 `! gh auth login`을 실행해주세요. 완료 후 여기로 돌아오면 됩니다.")
+  - B) 건너뛰기 (Copilot 없이 진행)
+
+- gh 인증됨 + copilot 확장 미설치 (COPILOT_EXT: 미설치):
+  질문: "GitHub Copilot CLI 확장이 설치되지 않았습니다. 자동으로 설치할까요?"
+  선택지:
+  - A) 지금 설치 (Bash로 `gh extension install github/gh-copilot` 실행)
+  - B) 건너뛰기
+
+- 전부 OK (GH_CLI + 인증 + COPILOT_EXT 모두 설치됨):
   질문: "GitHub Copilot CLI가 준비되어 있습니다. 이대로 사용할까요?"
   선택지:
   - A) 이대로 사용 (권장)
   - B) 건너뛰기 (Copilot 없이 진행)
 
-- 인증 안 됨:
-  질문: "GitHub Copilot을 사용하려면 인증이 필요합니다."
-  선택지:
-  - A) 지금 인증하기 (터미널에서 `! gh auth login` 실행 안내)
-  - B) 건너뛰기 (Copilot 없이 진행)
-
-- 확장 미설치:
-  질문: "GitHub Copilot CLI 확장이 설치되지 않았습니다."
-  선택지:
-  - A) 지금 설치하기 (`gh extension install github/gh-copilot` 실행)
-  - B) 건너뛰기
+참고: Copilot은 유료 구독(Individual $10/월, Business $19/월)이 필요합니다. 연결 테스트에서 실패하면 "Copilot 구독이 필요할 수 있습니다. 구독 없이도 Claude + Gemini 2개 AI로 리뷰 가능합니다."로 안내합니다.
 
 **4) GitLab 토큰** — 스캔 결과에 따라 선택지 구성:
 
@@ -292,7 +302,7 @@ cd $HOME/Developer/agora2 && npx tsx scripts/agora-review.ts /tmp/agora-diff-{ti
 ```
 
 실패한 AI가 있으면 구체적 에러 메시지와 복구 안내를 표시합니다:
-- "🐻 Gemini ❌ 실패: API 키가 만료되었습니다. `/agora-setup`으로 키를 갱신해주세요."
+- "🐻 Gemini ❌ 실패: 인증이 만료되었을 수 있습니다. `gemini auth login`을 실행해주세요."
 - "🐱 Copilot ❌ 실패: 타임아웃. 네트워크를 확인해주세요."
 
 ## 3단계: 리포트 생성
@@ -352,6 +362,7 @@ MC: 🏛️ Claude Code ({모델명})
 5. **액션 아이템은 체크리스트**: 리뷰 끝에 "그래서 뭘 해야 하는데?"를 명확히.
 6. **MC 판정에 프로젝트 컨텍스트 활용**: MC(Claude Code)는 프로젝트 구조를 알고 있으므로, 일반론이 아닌 이 프로젝트에 맞는 판단을 내림.
 7. **모든 이슈에 코드 스니펫 포함**: 이슈를 설명할 때 관련 diff 코드를 함께 보여줌. 코드 없이 텍스트만 있는 이슈 카드는 없어야 함.
+8. **개선안은 코드로 보여줌**: 텍스트 설명뿐 아니라 "현재 코드 → 개선안 코드"를 before/after로 표시. 사용자가 바로 복붙할 수 있게.
 
 스크립트 실행 중 에러가 있으면 (일부 AI 실패 등) "한눈에 보기" 섹션에 경고를 함께 표시합니다.
 
@@ -369,6 +380,7 @@ MC: 🏛️ Claude Code ({모델명})
      - 변경된 줄은 diff 형식으로 표시 (+는 추가, -는 삭제)
      - HTML에서 +줄은 class="diff-add", -줄은 class="diff-del"로 마크업
      - 코드 스니펫이 없는 이슈 카드가 있으면 안 됩니다 (일관성)
+   - 이슈 카드의 개선안: 가능한 경우 "현재 코드"와 "개선안 코드"를 before/after로 나란히 표시. HTML에서 현재 코드는 class="code-before", 개선안 코드는 class="code-after"로 마크업. 사용자가 개선안을 바로 복붙할 수 있게.
    - 충돌 섹션: 각 AI 의견 + MC 판정
    - 액션 아이템: 체크박스 + 프로그레스 바
    - 푸터: 소요 시간 포함
