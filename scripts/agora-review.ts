@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { execSync } from 'child_process'
-import { tmpdir } from 'os'
-import { join } from 'path'
+import { tmpdir, homedir } from 'os'
+import { join, basename } from 'path'
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -10,12 +10,29 @@ export interface ReviewResult {
   icon: string
   response: string
   error?: string
+  model?: string
+  durationMs?: number
+}
+
+export interface TestResult {
+  ai: string
+  icon: string
+  ok: boolean
+  model?: string
+  responseTime?: number
+  error?: string
 }
 
 interface AgoraOutput {
   results: ReviewResult[]
   warnings: string[]
   diffLineCount: number
+  totalDurationMs?: number
+  savedTo?: string
+}
+
+interface AgoraTestOutput {
+  tests: TestResult[]
 }
 
 // ─── Constants ───────────────────────────────────────────
@@ -36,9 +53,41 @@ const REVIEW_PROMPT = (diff: string) => `당신은 코드 리뷰어입니다. �
 ${diff}
 \`\`\``
 
+// ─── Helpers ────────────────────────────────────────────
+
+export function loadGeminiModel(): string {
+  try {
+    const envPath = join(homedir(), 'Developer', 'agora2', '.env.agora')
+    const content = readFileSync(envPath, 'utf-8')
+    const match = content.match(/^GEMINI_MODEL=(.+)$/m)
+    if (match) return match[1].trim()
+  } catch {}
+  return 'gemini-2.0-flash'
+}
+
+export function parseCopilotModel(response: string): string {
+  // 응답 텍스트에서 모델명 패턴 탐색 (예: claude-sonnet-4.6, gpt-4o, etc.)
+  const modelPattern = /\b(claude[-\w.]+|gpt[-\w.]+|o[1-9][-\w.]*)\b/i
+  const match = response.match(modelPattern)
+  return match ? match[1] : '모델 자동 선택'
+}
+
+function formatTimestamp(date: Date): string {
+  const y = date.getFullYear()
+  const mo = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const h = String(date.getHours()).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+  const s = String(date.getSeconds()).padStart(2, '0')
+  return `${y}${mo}${d}-${h}${mi}${s}`
+}
+
 // ─── AI Callers ──────────────────────────────────────────
 
 export function callGemini(prompt: string): ReviewResult {
+  const model = loadGeminiModel()
+  const startTime = Date.now()
+
   try {
     // 프롬프트를 임시 파일로 저장 (쉘 이스케이프 문제 방지)
     const promptFile = join(tmpdir(), `agora-gemini-${Date.now()}.txt`)
@@ -61,6 +110,8 @@ export function callGemini(prompt: string): ReviewResult {
       ai: 'Gemini',
       icon: '🐻',
       response: output.trim(),
+      model,
+      durationMs: Date.now() - startTime,
     }
   } catch (e) {
     return {
@@ -68,11 +119,15 @@ export function callGemini(prompt: string): ReviewResult {
       icon: '🐻',
       response: '',
       error: e instanceof Error ? e.message : String(e),
+      model,
+      durationMs: Date.now() - startTime,
     }
   }
 }
 
 export function callCopilot(prompt: string): ReviewResult {
+  const startTime = Date.now()
+
   try {
     // gh copilot 사용 가능 확인
     execSync('gh copilot --version', { stdio: 'pipe' })
@@ -82,6 +137,8 @@ export function callCopilot(prompt: string): ReviewResult {
       icon: '🐱',
       response: '',
       error: 'GitHub Copilot CLI를 사용할 수 없습니다. `gh auth login` 후 `gh extension install github/gh-copilot`을 실행하세요.',
+      model: '모델 자동 선택',
+      durationMs: Date.now() - startTime,
     }
   }
 
@@ -101,10 +158,13 @@ export function callCopilot(prompt: string): ReviewResult {
 
     try { execSync(`rm -f '${promptFile}'`, { stdio: 'pipe' }) } catch {}
 
+    const trimmed = output.trim()
     return {
       ai: 'Copilot',
       icon: '🐱',
-      response: output.trim(),
+      response: trimmed,
+      model: parseCopilotModel(trimmed),
+      durationMs: Date.now() - startTime,
     }
   } catch (e) {
     return {
@@ -112,6 +172,8 @@ export function callCopilot(prompt: string): ReviewResult {
       icon: '🐱',
       response: '',
       error: e instanceof Error ? e.message : String(e),
+      model: '모델 자동 선택',
+      durationMs: Date.now() - startTime,
     }
   }
 }
@@ -119,6 +181,7 @@ export function callCopilot(prompt: string): ReviewResult {
 // ─── Orchestrator ────────────────────────────────────────
 
 export function callExternalAIs(diff: string): AgoraOutput {
+  const totalStart = Date.now()
   const warnings: string[] = []
   const diffLineCount = diff.split('\n').length
 
@@ -142,12 +205,74 @@ export function callExternalAIs(diff: string): AgoraOutput {
     failed.forEach(r => warnings.push(`⚠️ ${r.icon} ${r.ai} 응답 없음: ${r.error}`))
   }
 
-  return { results, warnings, diffLineCount }
+  return { results, warnings, diffLineCount, totalDurationMs: Date.now() - totalStart }
+}
+
+// ─── Connection Test ─────────────────────────────────────
+
+export function runConnectionTest(): AgoraTestOutput {
+  const tests: TestResult[] = []
+
+  // Gemini 테스트
+  const geminiModel = loadGeminiModel()
+  const geminiStart = Date.now()
+  try {
+    const promptFile = join(tmpdir(), `agora-gemini-test-${Date.now()}.txt`)
+    writeFileSync(promptFile, 'Hello', 'utf-8')
+    execSync(
+      `gemini -p "$(cat '${promptFile}')" -o text`,
+      { encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
+    )
+    try { execSync(`rm -f '${promptFile}'`, { stdio: 'pipe' }) } catch {}
+    tests.push({ ai: 'Gemini', icon: '🐻', ok: true, model: geminiModel, responseTime: Date.now() - geminiStart })
+  } catch (e) {
+    tests.push({ ai: 'Gemini', icon: '🐻', ok: false, model: geminiModel, error: e instanceof Error ? e.message : String(e) })
+  }
+
+  // Copilot 테스트
+  const copilotStart = Date.now()
+  try {
+    execSync('gh copilot --version', { stdio: 'pipe' })
+    const promptFile = join(tmpdir(), `agora-copilot-test-${Date.now()}.txt`)
+    writeFileSync(promptFile, 'Hello', 'utf-8')
+    const output = execSync(
+      `gh copilot -p "$(cat '${promptFile}')"`,
+      { encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
+    )
+    try { execSync(`rm -f '${promptFile}'`, { stdio: 'pipe' }) } catch {}
+    tests.push({ ai: 'Copilot', icon: '🐱', ok: true, model: parseCopilotModel(output.trim()), responseTime: Date.now() - copilotStart })
+  } catch (e) {
+    tests.push({ ai: 'Copilot', icon: '🐱', ok: false, error: e instanceof Error ? e.message : String(e) })
+  }
+
+  return { tests }
+}
+
+// ─── History ─────────────────────────────────────────────
+
+export function saveReviewHistory(output: AgoraOutput, diffPath: string): string {
+  const reviewDir = join(homedir(), '.agora', 'reviews')
+  mkdirSync(reviewDir, { recursive: true })
+
+  const timestamp = formatTimestamp(new Date())
+  const diffName = basename(diffPath, '.diff').replace(/[^a-zA-Z0-9_-]/g, '-')
+  const fileName = `${timestamp}-${diffName}.json`
+  const filePath = join(reviewDir, fileName)
+
+  writeFileSync(filePath, JSON.stringify(output, null, 2), 'utf-8')
+  return filePath
 }
 
 // ─── Main ────────────────────────────────────────────────
 
 function main() {
+  // --test 플래그 처리
+  if (process.argv.includes('--test')) {
+    const testOutput = runConnectionTest()
+    console.log(JSON.stringify(testOutput))
+    return
+  }
+
   const diffPath = process.argv[2]
 
   if (!diffPath) {
@@ -181,6 +306,11 @@ function main() {
   }
 
   const output = callExternalAIs(diff)
+
+  // 히스토리 저장
+  const savedTo = saveReviewHistory(output, diffPath)
+  output.savedTo = savedTo
+
   console.log(JSON.stringify(output))
 }
 

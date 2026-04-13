@@ -9,12 +9,25 @@ test -f /Users/wolgus104/Developer/agora2/.env.agora && echo "READY" || echo "NE
 
 ### NEEDS_SETUP인 경우 — 초기 셋업 대화
 
-먼저 Bash로 로컬 환경을 한번에 스캔합니다:
+**환영 메시지를 먼저 표시합니다:**
+
+```
+🐙 안녕하세요! Agora입니다.
+
+코드 리뷰를 3개 AI(Claude, Gemini, Copilot)에게 동시에 맡기고,
+누가 뭘 발견했는지 비교해서 보여주는 도구예요.
+합의한 이슈는 높은 확신으로, 의견이 갈린 이슈는 MC가 판정해드립니다.
+
+처음이시네요! 간단한 설정부터 시작할게요.
+```
+
+그 다음 Bash로 로컬 환경을 한번에 스캔합니다:
 ```
 echo "=== 로컬 환경 스캔 ==="
 echo "--- Claude ---"
 [ -n "$ANTHROPIC_API_KEY" ] && echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:0:10}..." || echo "ANTHROPIC_API_KEY: 없음"
 [ "$CLAUDE_CODE_USE_BEDROCK" = "1" ] && echo "BEDROCK: 사용 중" || echo "BEDROCK: 미사용"
+[ -n "$ANTHROPIC_MODEL" ] && echo "MODEL: $ANTHROPIC_MODEL" || echo "MODEL: 감지 안 됨"
 grep -h "ANTHROPIC_API_KEY" ~/.zshrc ~/.bashrc 2>/dev/null | grep -v "^#" | head -1 || true
 echo "--- Gemini ---"
 [ -n "$GEMINI_API_KEY" ] && echo "GEMINI_API_KEY: ${GEMINI_API_KEY:0:10}..." || echo "GEMINI_API_KEY: 없음"
@@ -31,56 +44,54 @@ grep -h "GITLAB_TOKEN\|GITLAB_PRIVATE_TOKEN" ~/.zshrc ~/.bashrc 2>/dev/null | gr
 
 추가로 Claude memory에 저장된 GitLab 토큰이 있는지도 확인합니다.
 
-스캔 결과를 요약해서 사용자에게 보여주고, AskUserQuestion으로 각 AI 설정을 확인합니다.
-
-**셋업 안내 메시지:**
-
+스캔 결과를 요약해서 사용자에게 보여줍니다:
 ```
-━━━ Agora 초기 설정 ━━━━━━━━━━━━━━━━━━━━━━
+━━━ 로컬 환경 스캔 결과 ━━━━━━━━━━━━━━━━━━
 
-Agora는 3개 AI에게 동시에 코드 리뷰를 요청합니다.
-처음 사용이시네요! 로컬 환경을 확인했습니다.
-```
+🐶 Claude    — {Bedrock 사용 중 / API 키 발견 / 없음}
+🐻 Gemini    — {키 발견 / 없음}
+🐱 Copilot   — {준비 완료 / 인증 필요 / 미설치}
+📋 GitLab    — {토큰 발견 / 없음}
 
-그 다음 스캔 결과 요약을 표시합니다 (예시):
-```
-🐶 Claude    — AWS Bedrock 경유 사용 중
-🐻 Gemini    — GOOGLE_API_KEY 발견 (AIzaSy...)
-🐱 Copilot   — 준비 완료 (로그인됨)
-📋 GitLab    — memory에 토큰 발견
+각 AI 설정을 확인할게요.
 ```
 
-**각 AI별 AskUserQuestion으로 확인:**
-
-각 AI 설정을 AskUserQuestion 도구를 사용해 하나씩 확인합니다.
+**각 AI별 AskUserQuestion으로 확인 (4개 모두 물어봅니다):**
 
 **1) Claude API** — 스캔 결과에 따라 선택지 구성:
 
 - Bedrock 감지 시:
   질문: "AWS Bedrock 경유로 Claude를 사용하고 계시네요. Agora에서도 Bedrock으로 호출할까요?"
   선택지:
-  - A) Bedrock 사용 (기존 AWS 인증 그대로)
+  - A) Bedrock 사용 (권장, 기존 AWS 인증 그대로)
   - B) Anthropic API 키 직접 입력
 
 - ANTHROPIC_API_KEY 발견 시:
   질문: "Anthropic API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
   선택지:
-  - A) 이 키 사용
+  - A) 이 키 사용 (권장)
   - B) 새 키 입력
 
 - 둘 다 없을 때:
-  질문: "Claude API 키를 찾지 못했습니다. Anthropic 콘솔(https://console.anthropic.com)에서 발급받을 수 있습니다."
+  질문: "Claude API 키를 찾지 못했습니다. Anthropic 콘솔(https://console.anthropic.com)에서 발급받을 수 있습니다. Claude Code 구독과는 별개로 API 키를 따로 만들어야 해요."
   선택지:
   - A) API 키 입력 (직접 입력)
-  - B) 건너뛰기 (Claude 없이 2개 AI로 진행)
+  - B) 건너뛰기 (Claude 리뷰어 없이 2개 AI로 진행. MC 역할은 Claude Code가 계속 수행)
 
 **2) Gemini API** — 스캔 결과에 따라 선택지 구성:
 
 - GEMINI_API_KEY 또는 GOOGLE_API_KEY 발견 시:
   질문: "Gemini API 키가 이미 있습니다 ({앞 10자}...). 이 키를 사용할까요?"
   선택지:
-  - A) 이 키 사용
+  - A) 이 키 사용 (권장)
   - B) 새 키 입력
+
+  키 사용 확정 후 모델 선택:
+  질문: "Gemini 모델을 선택해주세요."
+  선택지:
+  - A) Gemini 2.0 Flash (권장, 빠르고 무료)
+  - B) Gemini 2.5 Pro (더 정확, 유료 플랜 필요할 수 있음)
+  - C) Gemini 2.5 Flash (균형형)
 
 - 없을 때:
   질문: "Gemini API 키를 찾지 못했습니다. Google AI Studio(https://aistudio.google.com/apikey)에서 무료로 발급 가능합니다."
@@ -88,16 +99,21 @@ Agora는 3개 AI에게 동시에 코드 리뷰를 요청합니다.
   - A) API 키 입력 (직접 입력)
   - B) 건너뛰기 (Gemini 없이 진행)
 
-**3) GitHub Copilot** — 자동 확인:
+**3) GitHub Copilot** — 스캔 결과에 따라 선택지 구성:
 
-- 인증 + 확장 모두 OK → "🐱 GitHub Copilot 준비 완료!" (선택지 없이 자동 진행)
-- 인증 안 됨 → AskUserQuestion:
+- 인증 + 확장 모두 OK:
+  질문: "GitHub Copilot CLI가 준비되어 있습니다. 이대로 사용할까요?"
+  선택지:
+  - A) 이대로 사용 (권장)
+  - B) 건너뛰기 (Copilot 없이 진행)
+
+- 인증 안 됨:
   질문: "GitHub Copilot을 사용하려면 인증이 필요합니다."
   선택지:
   - A) 지금 인증하기 (터미널에서 `! gh auth login` 실행 안내)
   - B) 건너뛰기 (Copilot 없이 진행)
 
-- 확장 미설치 → AskUserQuestion:
+- 확장 미설치:
   질문: "GitHub Copilot CLI 확장이 설치되지 않았습니다."
   선택지:
   - A) 지금 설치하기 (`gh extension install github/gh-copilot` 실행)
@@ -108,7 +124,7 @@ Agora는 3개 AI에게 동시에 코드 리뷰를 요청합니다.
 - 환경변수 또는 memory에서 토큰 발견 시:
   질문: "GitLab 토큰이 이미 있습니다 ({앞 10자}...). 이 토큰을 사용할까요?"
   선택지:
-  - A) 이 토큰 사용
+  - A) 이 토큰 사용 (권장)
   - B) 새 토큰 입력
   - C) 건너뛰기 (로컬 git diff만 사용)
 
@@ -118,41 +134,92 @@ Agora는 3개 AI에게 동시에 코드 리뷰를 요청합니다.
   - A) 토큰 입력 (직접 입력)
   - B) 건너뛰기
 
-**셋업 완료 후:**
+**연결 테스트:**
 
-모든 선택이 끝나면 Bash로 `.env.agora` 파일을 생성합니다.
-(사용자가 선택한 값들로 파일을 구성)
+모든 설정이 끝나면 Bash로 `.env.agora` 파일을 생성하고, 설정된 AI의 연결 상태를 테스트합니다:
+```
+cd /Users/wolgus104/Developer/agora2 && npx tsx scripts/agora-review.ts --test
+```
 
-그리고 설정 결과를 요약합니다:
+테스트 결과를 사용자에게 보여줍니다:
+```
+━━━ 연결 테스트 ━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🐻 Gemini (2.0 Flash)    ✅ 응답 확인 (1.2초)
+🐱 Copilot               ✅ 응답 확인 (2.5초)
+```
+
+실패한 AI가 있으면 구체적인 복구 안내를 합니다:
+- 401/Unauthorized → "API 키가 잘못되었거나 만료되었습니다. 키를 다시 확인해주세요."
+- 429/Rate limit → "API 호출 한도에 도달했습니다. 잠시 후 다시 시도해주세요."
+- 타임아웃 → "응답이 너무 느립니다. 네트워크 상태를 확인해주세요."
+- gh copilot not found → "`gh extension install github/gh-copilot`을 실행해주세요."
+- gh auth 필요 → "`! gh auth login`을 터미널에서 실행해주세요."
+
+실패한 AI가 있어도 2개 이상 성공하면 진행 가능:
+"⚠️ {AI명} 연결에 실패했지만, 나머지 {N}개 AI로 리뷰를 진행할 수 있습니다."
+
+전체 실패 시:
+"❌ 모든 AI 연결에 실패했습니다. 설정을 다시 확인해주세요. `/agora-setup`으로 재설정할 수 있습니다."
+
+**셋업 완료 메시지:**
+
 ```
 ━━━ 설정 완료! ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🐶 Claude: Bedrock 경유 / API 키 / 미설정
-🐻 Gemini: API 키 설정됨 / 미설정
-🐱 Copilot: 준비 완료 / 미설정
-📋 GitLab: 토큰 설정됨 / 건너뜀
+🐶 Claude: {Bedrock 경유 / API 키 / 미설정} ({모델명})
+🐻 Gemini: {API 키 설정됨 / 미설정} ({모델명})
+🐱 Copilot: {준비 완료 / 미설정} (모델 자동 선택)
+📋 GitLab: {토큰 설정됨 / 건너뜀}
+🐙 MC: Claude Code ({모델명})
 
-최소 2개 AI가 설정되어야 Agora를 사용할 수 있습니다.
-이제 리뷰를 시작할 수 있습니다!
-리뷰 대상을 알려주세요 (MR URL, 또는 바로 엔터를 치면 최근 변경사항을 리뷰합니다).
+Agora를 사용할 준비가 되었습니다!
 ```
+
+리뷰 대상 선택으로 넘어갑니다 (아래 "리뷰 대상 선택" 참조).
 
 만약 설정된 AI가 2개 미만이면:
 "최소 2개 AI가 필요합니다. 추가 설정이 필요합니다."로 안내하고 부족한 AI 설정으로 돌아갑니다.
 
-사용자가 리뷰 대상을 입력하면 아래 1단계부터 진행합니다.
-리뷰 대상 없이 셋업만 한 경우, 여기서 종료합니다.
-
 ### READY인 경우 — 바로 리뷰 진행
 
-아래 1단계부터 시작합니다.
+.env.agora를 Bash로 읽어서 설정 상태를 간단히 표시합니다:
+```
+source /Users/wolgus104/Developer/agora2/.env.agora 2>/dev/null
+echo "CLAUDE_USE_BEDROCK=${CLAUDE_USE_BEDROCK:-0}"
+echo "GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}"
+echo "ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-감지 안 됨}"
+```
+
+```
+🐙 Agora 준비 완료!
+```
+
+아래 "리뷰 대상 선택"으로 넘어갑니다.
+
+## 리뷰 대상 선택
+
+사용자에게 AskUserQuestion으로 리뷰 대상을 물어봅니다:
+
+질문: "리뷰 대상을 알려주세요."
+선택지:
+- A) GitLab MR URL 입력 — MR URL을 붙여넣으면 자동으로 diff를 가져옵니다
+- B) 최근 커밋 리뷰 — `git diff HEAD~1`로 최근 커밋의 변경사항을 리뷰합니다
+- C) 스테이징 변경사항 — `git diff`로 현재 작업 중인 변경사항을 리뷰합니다
+- D) 셋업만 완료 — 지금은 리뷰하지 않고 설정만 저장합니다
+
+사용자가 $ARGUMENTS에 URL을 직접 입력한 경우 (예: `/agora-review https://gitlab.nexon.com/...`), 이 질문을 건너뛰고 바로 1단계로 진행합니다.
+
+사용자가 D를 선택하면 여기서 종료합니다.
+사용자가 A를 선택하면 URL을 입력받고 1단계로 진행합니다.
+사용자가 B 또는 C를 선택하면 해당 git diff 명령어로 1단계를 시작합니다.
 
 ## 1단계: diff 획득
 
 사용자 입력을 확인합니다:
 
 - **GitLab MR URL인 경우** (예: `https://gitlab.nexon.com/.../merge_requests/123`):
-  URL에서 프로젝트 경로와 MR IID를 추출하고, Bash로 GitLab API를 호출하여 diff를 가져옵니다:
+  URL에서 프로젝트 경로와 MR IID를 추출하고, Bash로 GitLab API를 호출하여 MR 정보와 diff를 가져옵니다:
   ```
   curl -s --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
     "https://gitlab.nexon.com/api/v4/projects/PROJECT_ID/merge_requests/MR_IID/changes"
@@ -160,13 +227,42 @@ Agora는 3개 AI에게 동시에 코드 리뷰를 요청합니다.
   PROJECT_ID는 URL 인코딩된 프로젝트 경로 (예: `qualitysolution%2Ftovice%2Ftovice-server`)
   환경변수 GITLAB_TOKEN은 .env.agora 파일에서 로드합니다.
 
-- **로컬 diff인 경우**: `git diff` 명령어로 diff를 가져옵니다.
+  **diff 정보를 먼저 표시합니다:**
+  ```
+  📋 MR #{IID}: {title}
+     {변경 파일 수} 파일 변경 · {diff 줄 수}줄 · 상태: {state}
+
+  리뷰를 시작합니다...
+  ```
+
+- **로컬 diff인 경우**: `git diff` 또는 `git diff HEAD~1` 명령어로 diff를 가져옵니다.
+  ```
+  📋 로컬 diff
+     {변경 파일 수} 파일 변경 · {diff 줄 수}줄
+
+  리뷰를 시작합니다...
+  ```
 
 - **아무 입력 없는 경우**: 현재 브랜치의 `git diff HEAD~1`을 사용합니다.
 
 획득한 diff를 임시 파일(`/tmp/agora-diff-{timestamp}.txt`)에 저장합니다.
 
+diff가 비어있으면: "변경사항이 없습니다. 리뷰할 내용이 없어요."로 안내하고 종료합니다.
+
+diff가 3000줄을 초과하면:
+"⚠️ diff가 {N}줄로 매우 큽니다. 일부 AI에서 잘림이 발생할 수 있습니다. 계속 진행할까요?"
+선택지: A) 계속 진행 / B) 취소
+
 ## 2단계: AI 리뷰 수집
+
+**진행 안내를 먼저 표시합니다:**
+
+```
+🐙 3개 AI에게 리뷰를 요청합니다. 1-2분 정도 걸릴 수 있어요.
+
+🐶 Claude 리뷰 중... (자체 리뷰)
+🐻 Gemini + 🐱 Copilot 호출 중... (CLI)
+```
 
 **2-A) Claude 리뷰 (자체 생성)**
 
@@ -187,6 +283,18 @@ cd /Users/wolgus104/Developer/agora2 && npx tsx scripts/agora-review.ts /tmp/ago
 
 스크립트가 Gemini CLI와 Copilot CLI를 호출하여 각각 리뷰를 받고, 결과를 JSON으로 stdout에 출력합니다.
 
+**완료 표시:**
+
+```
+🐶 Claude ✅ 완료
+🐻 Gemini ✅ 완료 ({소요 시간})
+🐱 Copilot ✅ 완료 ({소요 시간})
+```
+
+실패한 AI가 있으면 구체적 에러 메시지와 복구 안내를 표시합니다:
+- "🐻 Gemini ❌ 실패: API 키가 만료되었습니다. `/agora-setup`으로 키를 갱신해주세요."
+- "🐱 Copilot ❌ 실패: 타임아웃. 네트워크를 확인해주세요."
+
 ## 3단계: 리포트 생성
 
 스크립트 출력(JSON)을 읽고, Claude 자체 리뷰와 합쳐서 리포트를 생성합니다.
@@ -205,7 +313,7 @@ cd /Users/wolgus104/Developer/agora2 && npx tsx scripts/agora-review.ts /tmp/ago
 - 🟡 warning: 수정을 권장하는 이슈
 - 🔵 info: 알아두면 좋은 참고 사항
 
-### 출력 형식
+### 터미널 출력 형식
 
 리포트는 "위에서 아래로 읽으면 핵심부터 세부까지" 구조로 작성합니다.
 
@@ -222,60 +330,18 @@ cd /Users/wolgus104/Developer/agora2 && npx tsx scripts/agora-review.ts /tmp/ago
 
 🔴 N건  🟡 N건  🔵 N건
 합의 N건 | 고유 N건 | 충돌 N건
-참여: 🐶 Claude  🐻 Gemini  🐱 Copilot
+참여: 🐶 Claude ({모델명})  🐻 Gemini ({모델명})  🐱 Copilot (모델 자동 선택)
+MC: 🐙 Claude Code ({모델명})
 
 ━━━ 수정이 필요한 것들 ━━━━━━━━━━━━━━━━━━━
 
-파일별로 그룹핑합니다. severity 높은 순서로 정렬.
-합의/고유/충돌 구분 없이 "이 파일에서 뭘 고쳐야 하는지"를 중심으로.
-
-### `파일명`
-
-🔴 **line:N — 이슈 제목**
-  {설명 1-2줄}
-  💡 {개선 제안}
-  👥 🐶🐻🐱 합의 (3/3)
-
-🟡 **line:N — 이슈 제목**
-  {설명 1-2줄}
-  💡 {개선 제안}
-  👤 🐱 Copilot만 발견
-
-### `다른파일명`
-
-🟡 **line:N — 이슈 제목**
-  {설명}
-  💡 {개선 제안}
-  👥 🐶🐻 합의 (2/3)
-
-━━━ 의견이 갈린 것들 ━━━━━━━━━━━━━━━━━━━━
-
-충돌이 있는 경우에만 이 섹션을 표시합니다.
-
-⚡ **`파일명`:line — {주제}**
-
-  🐶 Claude: {의견}
-  🐻 Gemini: {의견}
-  🐱 Copilot: {의견}
-
-  🐙 MC 판정: {MC로서 어떤 의견이 맞는지, 왜 그런지 판단. 프로젝트 컨텍스트를 아는 MC만 할 수 있는 판단을 포함.}
-
-━━━ 참고만 하세요 ━━━━━━━━━━━━━━━━━━━━━━━
-
-🔵 severity의 info 이슈들. 간결하게 한 줄씩.
-
-- `파일:line` — {내용} ({어떤 AI가 발견})
+(이하 파일별 그룹핑, severity 순서, 합의/고유 뱃지 동일)
+...
 
 ━━━ 액션 아이템 ━━━━━━━━━━━━━━━━━━━━━━━━━
-
-위 리뷰 결과를 기반으로, 실제로 해야 할 작업을 우선순위별로 정리합니다.
-
-- [ ] 🔴 {가장 중요한 수정}
-- [ ] 🟡 {두 번째 수정}
-- [ ] 🟡 {세 번째 수정}
-- [ ] 🔵 {선택적 개선}
-
+...
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+총 소요: {시간} · Claude ({시간}) + Gemini ({시간}) + Copilot ({시간})
 ```
 
 ### 출력 원칙
@@ -287,5 +353,33 @@ cd /Users/wolgus104/Developer/agora2 && npx tsx scripts/agora-review.ts /tmp/ago
 6. **MC 판정에 프로젝트 컨텍스트 활용**: MC(Claude Code)는 프로젝트 구조를 알고 있으므로, 일반론이 아닌 이 프로젝트에 맞는 판단을 내림.
 
 스크립트 실행 중 에러가 있으면 (일부 AI 실패 등) "한눈에 보기" 섹션에 경고를 함께 표시합니다.
+
+## 4단계: 웹 리포트
+
+터미널 출력 후, 반드시 웹 리포트를 생성하고 브라우저에서 엽니다.
+
+1. `/Users/wolgus104/Developer/agora2/scripts/report-template.html`을 읽어서 구조를 참고합니다.
+2. 3단계의 리뷰 결과를 HTML로 작성합니다. 템플릿의 스타일과 구조를 그대로 사용하되, 실제 데이터로 채웁니다.
+   - 대시보드: severity 카운트, AI 합의 수, 참여 AI + 모델명
+   - MR 요약: 비유 포함 설명
+   - 이슈 카드: 파일별 그룹핑, 접이식, severity 색상, 합의/고유 뱃지
+   - 이슈 카드의 코드 스니펫: 해당 이슈와 관련된 diff 코드를 포함
+   - 충돌 섹션: 각 AI 의견 + MC 판정
+   - 액션 아이템: 체크박스 + 프로그레스 바
+   - 푸터: 소요 시간 포함
+3. 리포트를 `~/.agora/reviews/` 디렉토리에 저장합니다:
+   ```
+   mkdir -p ~/.agora/reviews
+   ```
+   파일명: `{YYYY-MM-DD}-{MR번호 또는 local}-review.html`
+4. Bash로 브라우저에서 엽니다:
+   ```
+   open ~/.agora/reviews/{파일명}
+   ```
+5. 사용자에게 안내합니다:
+   ```
+   🌐 웹 리포트를 브라우저에서 열었습니다.
+      파일: ~/.agora/reviews/{파일명}
+   ```
 
 $ARGUMENTS
