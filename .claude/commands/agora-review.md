@@ -363,7 +363,7 @@ MC: 🏛️ Claude Code ({모델명})
 6. **MC 판정에 프로젝트 컨텍스트 활용**: MC(Claude Code)는 프로젝트 구조를 알고 있으므로, 일반론이 아닌 이 프로젝트에 맞는 판단을 내림.
 7. **모든 이슈에 코드 스니펫 포함**: 이슈를 설명할 때 관련 diff 코드를 함께 보여줌. 코드 없이 텍스트만 있는 이슈 카드는 없어야 함.
 8. **개선안은 코드로 보여줌**: 텍스트 설명뿐 아니라 "현재 코드 → 개선안 코드"를 before/after로 표시. 사용자가 바로 복붙할 수 있게.
-9. **복사 버튼 포함**: 각 이슈 카드에 "📋 Claude Code에 붙여넣기용 프롬프트 복사" 버튼을 추가. 클릭하면 해당 이슈를 Claude Code에서 바로 수정할 수 있는 상세 프롬프트(파일 경로, 줄번호, 현재 코드, 개선 방향)가 클립보드에 복사됨. HTML에서 `<button class="copy-prompt-btn" onclick="copyPrompt(this)" data-prompt="프롬프트 내용">` 형태로 구현.
+9. **복사 버튼 포함**: 각 이슈 카드의 before/after 코드 비교 아래에 "📋 이 수정사항을 Claude Code에 요청하기" 버튼을 추가. 클릭하면 해당 이슈를 Claude Code에서 바로 수정할 수 있는 상세 프롬프트(파일 경로, 줄번호, 현재 코드, 개선 방향)가 클립보드에 복사됨. HTML에서 `<button class="copy-lg" onclick="copyPrompt(this)" data-prompt="프롬프트 내용">📋 이 수정사항을 Claude Code에 요청하기</button>` 형태로 구현. 웹 리포트 기본 테마는 라이트 모드. (`<html data-theme="light">`)
 
 스크립트 실행 중 에러가 있으면 (일부 AI 실패 등) "한눈에 보기" 섹션에 경고를 함께 표시합니다.
 
