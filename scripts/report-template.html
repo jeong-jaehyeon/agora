@@ -577,9 +577,9 @@
 
     <div class="filter-bar">
       <button class="filter-btn active" data-filter="all">전체</button>
-      <button class="filter-btn" data-filter="e">🔴 Error</button>
-      <button class="filter-btn" data-filter="w">🟡 Warning</button>
-      <button class="filter-btn" data-filter="consensus">👥 합의만</button>
+      <button class="filter-btn" data-filter="e">🔴 꼭 고쳐야 함</button>
+      <button class="filter-btn" data-filter="w">🟡 고치면 좋음</button>
+      <button class="filter-btn" data-filter="consensus">👥 AI 합의만</button>
     </div>
 
     <!-- validator.ts -->
@@ -589,7 +589,7 @@
       <div class="issue e open" data-sev="e" data-consensus="true">
         <div class="issue-top" onclick="toggleIssue(this)">
           <span class="issue-chevron">▶</span>
-          <span class="sev-tag e">error</span>
+          <span class="sev-tag e">필수</span>
           <span class="issue-loc">:203</span>
           <span class="issue-name">권한 체크를 위해 경로/메서드를 위조</span>
           <span class="badge consensus">합의 3/3</span>
@@ -620,7 +620,7 @@
       <div class="issue w" data-sev="w" data-consensus="true">
         <div class="issue-top" onclick="toggleIssue(this)">
           <span class="issue-chevron">▶</span>
-          <span class="sev-tag w">warning</span>
+          <span class="sev-tag w">권장</span>
           <span class="issue-loc">:295, 335</span>
           <span class="issue-name">N+1 쿼리 (reconcile 두 함수 모두)</span>
           <span class="badge consensus">합의 3/3</span>
@@ -641,7 +641,7 @@
       <div class="issue w" data-sev="w" data-consensus="true">
         <div class="issue-top" onclick="toggleIssue(this)">
           <span class="issue-chevron">▶</span>
-          <span class="sev-tag w">warning</span>
+          <span class="sev-tag w">권장</span>
           <span class="issue-loc">:351</span>
           <span class="issue-name">any 타입 사용</span>
           <span class="badge consensus">합의 3/3</span>
@@ -662,7 +662,7 @@
       <div class="issue w" data-sev="w" data-consensus="false">
         <div class="issue-top" onclick="toggleIssue(this)">
           <span class="issue-chevron">▶</span>
-          <span class="sev-tag w">warning</span>
+          <span class="sev-tag w">권장</span>
           <span class="issue-loc">:57</span>
           <span class="issue-name">정합성 검사 중복 실행 위험</span>
           <span class="badge solo">🐱 Copilot</span>
@@ -682,7 +682,7 @@
       <div class="issue w" data-sev="w" data-consensus="false">
         <div class="issue-top" onclick="toggleIssue(this)">
           <span class="issue-chevron">▶</span>
-          <span class="sev-tag w">warning</span>
+          <span class="sev-tag w">권장</span>
           <span class="issue-loc">:57</span>
           <span class="issue-name">reconcileCounter 리셋 없음</span>
           <span class="badge solo">🐶 Claude</span>
@@ -707,7 +707,7 @@
       <div class="issue w" data-sev="w" data-consensus="false">
         <div class="issue-top" onclick="toggleIssue(this)">
           <span class="issue-chevron">▶</span>
-          <span class="sev-tag w">warning</span>
+          <span class="sev-tag w">권장</span>
           <span class="issue-loc">:581</span>
           <span class="issue-name">최대 100개 동시 중지 요청</span>
           <span class="badge solo">🐻 Gemini</span>
@@ -727,7 +727,7 @@
       <div class="issue w" data-sev="w" data-consensus="false">
         <div class="issue-top" onclick="toggleIssue(this)">
           <span class="issue-chevron">▶</span>
-          <span class="sev-tag w">warning</span>
+          <span class="sev-tag w">권장</span>
           <span class="issue-loc">:553</span>
           <span class="issue-name">서비스 레이어에서 배열 크기 미검증</span>
           <span class="badge solo">🐱 Copilot</span>

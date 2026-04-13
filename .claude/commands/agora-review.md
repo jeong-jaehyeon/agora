@@ -309,9 +309,9 @@ cd /Users/wolgus104/Developer/agora2 && npx tsx scripts/agora-review.ts /tmp/ago
 - **충돌** (AI 간 명시적 의견 차이): 양쪽 근거를 함께 표시. MC 판정 포함.
 
 ### Severity 아이콘
-- 🔴 error: 반드시 수정해야 하는 버그/보안 이슈
-- 🟡 warning: 수정을 권장하는 이슈
-- 🔵 info: 알아두면 좋은 참고 사항
+- 🔴 필수: 반드시 수정해야 하는 버그/보안 이슈
+- 🟡 권장: 수정하면 좋은 이슈
+- 🔵 참고: 알아두면 좋은 사항
 
 ### 터미널 출력 형식
 
