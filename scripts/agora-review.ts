@@ -57,7 +57,7 @@ ${diff}
 
 export function loadGeminiModel(): string {
   try {
-    const envPath = join(homedir(), 'Developer', 'agora2', '.env.agora')
+    const envPath = join(import.meta.dirname, '..', '.env.agora')
     const content = readFileSync(envPath, 'utf-8')
     const match = content.match(/^GEMINI_MODEL=(.+)$/m)
     if (match) return match[1].trim()
