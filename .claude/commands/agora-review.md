@@ -12,7 +12,7 @@ test -f /Users/wolgus104/Developer/agora2/.env.agora && echo "READY" || echo "NE
 **환영 메시지를 먼저 표시합니다:**
 
 ```
-🐙 안녕하세요! Agora입니다.
+🏛️ 안녕하세요! Agora입니다.
 
 코드 리뷰를 3개 AI(Claude, Gemini, Copilot)에게 동시에 맡기고,
 누가 뭘 발견했는지 비교해서 보여주는 도구예요.
@@ -171,7 +171,7 @@ cd /Users/wolgus104/Developer/agora2 && npx tsx scripts/agora-review.ts --test
 🐻 Gemini: {API 키 설정됨 / 미설정} ({모델명})
 🐱 Copilot: {준비 완료 / 미설정} (모델 자동 선택)
 📋 GitLab: {토큰 설정됨 / 건너뜀}
-🐙 MC: Claude Code ({모델명})
+🏛️ MC: Claude Code ({모델명})
 
 Agora를 사용할 준비가 되었습니다!
 ```
@@ -192,7 +192,7 @@ echo "ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-감지 안 됨}"
 ```
 
 ```
-🐙 Agora 준비 완료!
+🏛️ Agora 준비 완료!
 ```
 
 아래 "리뷰 대상 선택"으로 넘어갑니다.
@@ -258,7 +258,7 @@ diff가 3000줄을 초과하면:
 **진행 안내를 먼저 표시합니다:**
 
 ```
-🐙 3개 AI에게 리뷰를 요청합니다. 1-2분 정도 걸릴 수 있어요.
+🏛️ 3개 AI에게 리뷰를 요청합니다. 1-2분 정도 걸릴 수 있어요.
 
 🐶 Claude 리뷰 중... (자체 리뷰)
 🐻 Gemini + 🐱 Copilot 호출 중... (CLI)
@@ -331,7 +331,7 @@ cd /Users/wolgus104/Developer/agora2 && npx tsx scripts/agora-review.ts /tmp/ago
 🔴 N건  🟡 N건  🔵 N건
 합의 N건 | 고유 N건 | 충돌 N건
 참여: 🐶 Claude ({모델명})  🐻 Gemini ({모델명})  🐱 Copilot (모델 자동 선택)
-MC: 🐙 Claude Code ({모델명})
+MC: 🏛️ Claude Code ({모델명})
 
 ━━━ 수정이 필요한 것들 ━━━━━━━━━━━━━━━━━━━
 
