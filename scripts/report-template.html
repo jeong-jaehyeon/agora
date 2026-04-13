@@ -66,6 +66,11 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   }
 
+  [data-theme="light"] .issue-code pre {
+    background: #f0f1f4;
+    border-color: #d1d5db;
+  }
+
   [data-theme="light"] .theme-toggle {
     background: var(--border);
   }
@@ -150,6 +155,7 @@
     grid-template-columns: 1fr 1fr 1fr;
     gap: 12px;
     margin-bottom: 28px;
+    align-items: stretch;
     animation: fadeUp 0.4s ease;
   }
 
@@ -158,6 +164,9 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     transition: border-color 0.2s, transform 0.2s;
   }
 
@@ -429,6 +438,16 @@
   .act-text { font-size: 13px; }
   .act-text strong { font-weight: 600; }
 
+  .file-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
   /* ── Filter Bar ── */
   .filter-bar {
     display: flex; gap: 6px; margin-bottom: 14px;
@@ -528,9 +547,9 @@
       <div class="metric-label">발견된 이슈</div>
       <div class="metric-value">10</div>
       <div class="severity-inline metric-sub">
-        <span class="sev-item"><span class="sev-dot e"></span>1</span>
-        <span class="sev-item"><span class="sev-dot w"></span>6</span>
-        <span class="sev-item"><span class="sev-dot i"></span>3</span>
+        <span class="sev-item"><span class="sev-dot e"></span>1 필수</span>
+        <span class="sev-item"><span class="sev-dot w"></span>6 권장</span>
+        <span class="sev-item"><span class="sev-dot i"></span>3 참고</span>
       </div>
     </div>
     <div class="metric-card">
@@ -792,12 +811,12 @@
           <span class="progress-text" id="progressText">0/6</span>
         </div>
       </div>
-      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🔴</span><span class="act-text"><strong>validator.ts</strong> — stop-all 전용 권한을 roleStore에 등록</span></label>
-      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-poller.ts</strong> — N+1 쿼리를 Op.in 일괄 조회로 변경</span></label>
-      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-poller.ts</strong> — any 타입을 인터페이스로 교체</span></label>
-      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-poller.ts</strong> — 중복 실행 방지 플래그 추가</span></label>
-      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-service.ts</strong> — 동시 중지 요청 청크 처리</span></label>
-      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><strong>build-result-service.ts</strong> — 서비스 레이어 배열 크기 검증</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🔴</span><span class="act-text"><span class="file-dot" style="background: var(--error);"></span><strong>validator.ts</strong> — stop-all 전용 권한을 roleStore에 등록</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><span class="file-dot" style="background: var(--warning);"></span><strong>build-result-poller.ts</strong> — N+1 쿼리를 Op.in 일괄 조회로 변경</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><span class="file-dot" style="background: var(--warning);"></span><strong>build-result-poller.ts</strong> — any 타입을 인터페이스로 교체</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><span class="file-dot" style="background: var(--warning);"></span><strong>build-result-poller.ts</strong> — 중복 실행 방지 플래그 추가</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><span class="file-dot" style="background: var(--accent);"></span><strong>build-result-service.ts</strong> — 동시 중지 요청 청크 처리</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><span class="file-dot" style="background: var(--accent);"></span><strong>build-result-service.ts</strong> — 서비스 레이어 배열 크기 검증</span></label>
     </div>
   </div>
 
