@@ -328,6 +328,18 @@
 
   .issue-fix::before { content: '💡 '; }
 
+  /* ── Copy Prompt Button ── */
+  .copy-prompt-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 10px; padding: 6px 12px; border-radius: 6px;
+    font-size: 12px; font-weight: 500;
+    background: var(--accent-dim); color: var(--accent);
+    border: 1px solid rgba(75,138,222,0.2);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .copy-prompt-btn:hover { background: rgba(75,138,222,0.2); }
+  .copy-prompt-btn.copied { background: var(--success-dim); color: var(--success); border-color: rgba(78,205,196,0.3); }
+
   .issue-code { margin-top: 10px; }
   .code-header { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
   .issue-code pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; overflow-x: auto; font-size: 12px; line-height: 1.5; }
@@ -657,6 +669,19 @@ const hasPermission = await roleStore
   .checkPermission(user.id, path, method)</code></pre>
             </div>
           </div>
+          <button class="copy-prompt-btn" onclick="copyPrompt(this)" data-prompt="src/middlewares/validator.ts의 203-207줄을 수정해주세요.
+
+현재 stop-all API의 권한 체크를 위해 path와 method를 기존 API(/build-results/:id/stop GET)로 위조하고 있습니다:
+
+```
+let method = req.method
+if (path === '/build-results/stop-all') {
+  path = '/build-results/:id/stop'
+  method = 'GET'
+}
+```
+
+이 코드를 제거하고, roleStore에 /build-results/stop-all POST에 대한 전용 권한을 등록하여 경로 변조 없이 원래 path와 method로 권한 체크가 되도록 수정해주세요. 기존 개별 stop과 동일한 권한 레벨이면 됩니다.">📋 Claude Code에 붙여넣기용 프롬프트 복사</button>
         </div>
       </div>
     </div>
@@ -866,6 +891,20 @@ function updateProgress() {
   document.getElementById('progressFill').style.width = pct + '%'
   document.getElementById('progressText').textContent = checked.length + '/' + all.length
   all.forEach(cb => cb.closest('.act').classList.toggle('done', cb.checked))
+}
+
+// Copy prompt to clipboard
+function copyPrompt(btn) {
+  const text = btn.getAttribute('data-prompt')
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.textContent
+    btn.textContent = '✅ 복사됨! Claude Code에 붙여넣기하세요'
+    btn.classList.add('copied')
+    setTimeout(() => {
+      btn.textContent = original
+      btn.classList.remove('copied')
+    }, 3000)
+  })
 }
 
 // Theme toggle
