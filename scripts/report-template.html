@@ -166,7 +166,7 @@
     padding: 18px 20px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     transition: border-color 0.2s, transform 0.2s;
   }
 
@@ -586,7 +586,8 @@
       <div class="ai-chips">
         <span class="ai-chip c">🐶 Claude <span class="model-name">Opus 4.6</span></span>
         <span class="ai-chip g">🐻 Gemini <span class="model-name">2.0 Flash</span></span>
-        <span class="ai-chip p">🐱 Copilot <span class="model-name">모델 자동 선택</span></span>
+        <span class="ai-chip p">🐱 Copilot <span class="model-name">Sonnet 4.6</span></span>
+        <span style="color:var(--text-muted); font-size:10px; margin:0 2px;">+</span>
         <span class="ai-chip mc">🏛️ MC <span class="model-name">Opus 4.6</span></span>
       </div>
       <div class="metric-sub">6 files · 302 lines · 소요 2분 30초</div>
@@ -601,6 +602,7 @@
       가스불은 꺼졌는데 "사용 중" 표시등이 켜져있는 <strong>고장난 표시등을 60초마다 자동 점검해서 리셋</strong>하는
       시스템을 도입한 MR입니다.
     </p>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:14px; margin-bottom:6px;">변경된 파일:</div>
     <div class="file-tags">
       <span class="ftag">build-result-controller.ts</span>
       <span class="ftag">build-result-route.ts</span>
