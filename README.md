@@ -99,22 +99,17 @@ Claude Code에서:
 
 로컬 환경을 확인했습니다.
 
-🐶 Claude    — AWS Bedrock 경유 사용 중 → 그대로 사용할까요?
-🐻 Gemini    — GOOGLE_API_KEY 발견 → 이 키를 사용할까요?
+🐶 Claude    — Claude Code 세션 사용 (설정 불필요)
+🐻 Gemini    — gemini CLI 인증 완료 → 그대로 사용할까요?
 🐱 Copilot   — 준비 완료
 📋 GitLab    — 토큰 발견 → 이 토큰을 사용할까요?
 ```
 
-각 AI별로 선택지가 제공되며, 기존에 설정된 키가 있으면 자동으로 감지합니다.
+각 AI별로 선택지가 제공되며, 기존에 설정된 인증이 있으면 자동으로 감지합니다.
 
-### 지원하는 Claude 인증 방식
+Claude는 Claude Code 세션을 그대로 사용하므로 별도 인증이 불필요합니다.
 
-| 방식 | 환경변수 | 설명 |
-|------|----------|------|
-| AWS Bedrock | `CLAUDE_USE_BEDROCK=1` | AWS 인증(~/.aws/credentials) 그대로 사용 |
-| Anthropic API | `ANTHROPIC_API_KEY=sk-ant-...` | Anthropic 직접 API 키 |
-
-셋업 결과는 `.env.agora` 파일에 저장됩니다 (`.gitignore` 대상).
+셋업 결과는 `.env.agora` 파일에 저장됩니다 (`.gitignore` 대상, `GEMINI_MODEL` + `GITLAB_TOKEN`).
 
 ## 웹 리포트
 
@@ -165,13 +160,15 @@ Claude Code에서:
 ```
 agora2/
 ├── .claude/commands/
-│   └── agora-review.md          # Claude Code 커스텀 커맨드 (셋업 + 리뷰 플로우)
+│   ├── agora-review.md          # Claude Code 커스텀 커맨드 (셋업 + 리뷰 플로우)
+│   └── agora-setup.md           # 설정 재설정 커맨드
 ├── scripts/
 │   ├── agora-review.ts          # Gemini/Copilot CLI 호출 오케스트레이터
 │   ├── agora-review.test.ts     # 테스트 (10개, vitest)
 │   └── report-template.html     # 웹 리포트 HTML 템플릿
-├── .env.agora                   # API 키 (gitignore, 셋업 시 자동 생성)
-├── .env.agora.example           # 키 템플릿
+├── SETUP-GUIDE.md               # 설치 가이드
+├── .env.agora                   # 설정 파일 (gitignore, 셋업 시 자동 생성)
+├── .env.agora.example           # 설정 템플릿
 ├── .gitignore
 ├── package.json
 ├── tsconfig.json

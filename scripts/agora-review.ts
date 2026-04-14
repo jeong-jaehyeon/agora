@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs'
 import { execSync } from 'child_process'
 import { tmpdir, homedir } from 'os'
 import { join, basename } from 'path'
@@ -88,11 +88,11 @@ export function callGemini(prompt: string): ReviewResult {
   const model = loadGeminiModel()
   const startTime = Date.now()
 
-  try {
-    // 프롬프트를 임시 파일로 저장 (쉘 이스케이프 문제 방지)
-    const promptFile = join(tmpdir(), `agora-gemini-${Date.now()}.txt`)
-    writeFileSync(promptFile, prompt, 'utf-8')
+  // 프롬프트를 임시 파일로 저장 (쉘 이스케이프 문제 방지)
+  const promptFile = join(tmpdir(), `agora-gemini-${Date.now()}.txt`)
+  writeFileSync(promptFile, prompt, 'utf-8')
 
+  try {
     const output = execSync(
       `gemini -p "$(cat '${promptFile}')" -o text`,
       {
@@ -102,9 +102,6 @@ export function callGemini(prompt: string): ReviewResult {
         env: { ...process.env },
       },
     )
-
-    // 임시 파일 정리
-    try { execSync(`rm -f '${promptFile}'`, { stdio: 'pipe' }) } catch {}
 
     return {
       ai: 'Gemini',
@@ -122,6 +119,8 @@ export function callGemini(prompt: string): ReviewResult {
       model,
       durationMs: Date.now() - startTime,
     }
+  } finally {
+    try { unlinkSync(promptFile) } catch {}
   }
 }
 
@@ -142,10 +141,10 @@ export function callCopilot(prompt: string): ReviewResult {
     }
   }
 
-  try {
-    const promptFile = join(tmpdir(), `agora-copilot-${Date.now()}.txt`)
-    writeFileSync(promptFile, prompt, 'utf-8')
+  const promptFile = join(tmpdir(), `agora-copilot-${Date.now()}.txt`)
+  writeFileSync(promptFile, prompt, 'utf-8')
 
+  try {
     const output = execSync(
       `gh copilot -p "$(cat '${promptFile}')"`,
       {
@@ -155,8 +154,6 @@ export function callCopilot(prompt: string): ReviewResult {
         env: { ...process.env },
       },
     )
-
-    try { execSync(`rm -f '${promptFile}'`, { stdio: 'pipe' }) } catch {}
 
     const trimmed = output.trim()
     return {
@@ -175,6 +172,8 @@ export function callCopilot(prompt: string): ReviewResult {
       model: '모델 자동 선택',
       durationMs: Date.now() - startTime,
     }
+  } finally {
+    try { unlinkSync(promptFile) } catch {}
   }
 }
 
@@ -216,33 +215,44 @@ export function runConnectionTest(): AgoraTestOutput {
   // Gemini 테스트
   const geminiModel = loadGeminiModel()
   const geminiStart = Date.now()
-  try {
+  {
     const promptFile = join(tmpdir(), `agora-gemini-test-${Date.now()}.txt`)
     writeFileSync(promptFile, 'Hello', 'utf-8')
-    execSync(
-      `gemini -p "$(cat '${promptFile}')" -o text`,
-      { encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
-    )
-    try { execSync(`rm -f '${promptFile}'`, { stdio: 'pipe' }) } catch {}
-    tests.push({ ai: 'Gemini', icon: '🐻', ok: true, model: geminiModel, responseTime: Date.now() - geminiStart })
-  } catch (e) {
-    tests.push({ ai: 'Gemini', icon: '🐻', ok: false, model: geminiModel, error: e instanceof Error ? e.message : String(e) })
+    try {
+      execSync(
+        `gemini -p "$(cat '${promptFile}')" -o text`,
+        { encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
+      )
+      tests.push({ ai: 'Gemini', icon: '🐻', ok: true, model: geminiModel, responseTime: Date.now() - geminiStart })
+    } catch (e) {
+      tests.push({ ai: 'Gemini', icon: '🐻', ok: false, model: geminiModel, error: e instanceof Error ? e.message : String(e) })
+    } finally {
+      try { unlinkSync(promptFile) } catch {}
+    }
   }
 
   // Copilot 테스트
   const copilotStart = Date.now()
   try {
     execSync('gh copilot --version', { stdio: 'pipe' })
-    const promptFile = join(tmpdir(), `agora-copilot-test-${Date.now()}.txt`)
-    writeFileSync(promptFile, 'Hello', 'utf-8')
-    const output = execSync(
-      `gh copilot -p "$(cat '${promptFile}')"`,
-      { encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
-    )
-    try { execSync(`rm -f '${promptFile}'`, { stdio: 'pipe' }) } catch {}
-    tests.push({ ai: 'Copilot', icon: '🐱', ok: true, model: parseCopilotModel(output.trim()), responseTime: Date.now() - copilotStart })
   } catch (e) {
     tests.push({ ai: 'Copilot', icon: '🐱', ok: false, error: e instanceof Error ? e.message : String(e) })
+    return { tests }
+  }
+  {
+    const promptFile = join(tmpdir(), `agora-copilot-test-${Date.now()}.txt`)
+    writeFileSync(promptFile, 'Hello', 'utf-8')
+    try {
+      const output = execSync(
+        `gh copilot -p "$(cat '${promptFile}')"`,
+        { encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
+      )
+      tests.push({ ai: 'Copilot', icon: '🐱', ok: true, model: parseCopilotModel(output.trim()), responseTime: Date.now() - copilotStart })
+    } catch (e) {
+      tests.push({ ai: 'Copilot', icon: '🐱', ok: false, error: e instanceof Error ? e.message : String(e) })
+    } finally {
+      try { unlinkSync(promptFile) } catch {}
+    }
   }
 
   return { tests }

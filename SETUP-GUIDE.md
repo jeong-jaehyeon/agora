@@ -66,7 +66,7 @@ cp ~/Developer/agora2/.claude/commands/agora-setup.md ~/.claude/commands/
 
 | AI | 필요한 것 | 없으면? |
 |----|-----------|---------|
-| 🐶 Claude | Bedrock 또는 Anthropic API 키 | 안내해줌 |
+| 🐶 Claude | 별도 설정 불필요 (Claude Code 세션 사용) | - |
 | 🐻 Gemini | `gemini` CLI + Google OAuth | `gemini auth login` 실행 |
 | 🐱 Copilot | `gh auth login` + `gh copilot` 확장 | 안내해줌 |
 | 📋 GitLab | GitLab Private Token | MR URL 사용 시만 필요 |
