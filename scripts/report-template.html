@@ -190,7 +190,7 @@
   .ai-chip.c { border-color: rgba(232,168,124,0.4); color: var(--claude); }
   .ai-chip.g { border-color: rgba(149,212,117,0.4); color: var(--gemini); }
   .ai-chip.p { border-color: rgba(124,196,250,0.4); color: var(--copilot); }
-  .ai-chip.mc { border-color: rgba(75,138,222,0.4); color: var(--accent); }
+  .ai-chip.mc { border-color: rgba(168,85,247,0.4); color: #a855f7; }
   .model-name { font-size: 9px; opacity: 0.6; margin-left: 1px; }
 
   /* ── MR Summary ── */
@@ -392,13 +392,13 @@
 
   .verdict {
     padding: 14px 16px; border-radius: 8px; font-size: 13px;
-    background: linear-gradient(135deg, rgba(108,159,255,0.06) 0%, rgba(108,159,255,0.02) 100%);
-    border: 1px solid rgba(108,159,255,0.12);
+    background: linear-gradient(135deg, rgba(168,85,247,0.06) 0%, rgba(168,85,247,0.02) 100%);
+    border: 1px solid rgba(168,85,247,0.12);
     line-height: 1.7;
   }
 
   .verdict-label {
-    font-size: 12px; font-weight: 700; color: var(--accent);
+    font-size: 12px; font-weight: 700; color: #a855f7;
     text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
   }
 
@@ -588,7 +588,7 @@
         <span class="ai-chip g">🐻 Gemini <span class="model-name">2.0 Flash</span></span>
         <span class="ai-chip p">🐱 Copilot <span class="model-name">Sonnet 4.6</span></span>
         <span style="color:var(--text-muted); font-size:10px; margin:0 2px;">+</span>
-        <span class="ai-chip mc">🏛️ MC <span class="model-name">Opus 4.6</span></span>
+        <span class="ai-chip mc" title="MC(중재자): 3개 AI의 리뷰를 비교하고, 합의/충돌을 판정합니다">🎙️ MC <span class="model-name">Opus 4.6</span></span>
       </div>
       <div class="metric-sub">6 files · 302 lines · 소요 2분 30초</div>
     </div>
@@ -825,7 +825,7 @@ const hasPermission = await roleStore
           <div class="op"><span class="op-name c">🐶 Claude</span> TOVICE는 local/dev/test/live 4단계 환경 사용. 'live'가 곧 production.</div>
         </div>
         <div class="verdict">
-          <div class="verdict-label">🏛️ MC 판정</div>
+          <div class="verdict-label">🎙️ MC 판정</div>
           이슈 아님. Gemini/Copilot은 일반적인 Node.js 관례로 판단했지만,
           TOVICE 프로젝트는 자체 환경 체계(local, dev, test, live)를 사용합니다.
           'live'가 이 프로젝트의 production입니다.
