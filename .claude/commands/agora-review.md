@@ -16,103 +16,89 @@ test -f $HOME/Developer/agora2/.env.agora && echo "READY" || echo "NEEDS_SETUP"
 
 코드 리뷰를 3개 AI(Claude, Gemini, Copilot)에게 동시에 맡기고,
 누가 뭘 발견했는지 비교해서 보여주는 도구예요.
-합의한 이슈는 높은 확신으로, 의견이 갈린 이슈는 MC가 판정해드립니다.
+
+Claude는 지금 이 세션에서 바로 리뷰하고 (별도 설정 불필요),
+Gemini와 Copilot은 CLI로 호출합니다.
 
 처음이시네요! 환경을 확인하고 설정을 도와드릴게요.
 ```
 
 **사전 조건 확인 (Pre-flight Check):**
 
-먼저 Agora가 동작하기 위한 기본 조건을 확인합니다:
 ```
 echo "=== Pre-flight Check ==="
 echo "NODE: $(node --version 2>/dev/null || echo '미설치')"
-echo "YARN: $(yarn --version 2>/dev/null || echo '미설치')"
-echo "NPX: $(npx --version 2>/dev/null || echo '미설치')"
 echo "AGORA_DIR: $(test -d $HOME/Developer/agora2/scripts && echo 'OK' || echo '미발견')"
 echo "AGORA_DEPS: $(test -d $HOME/Developer/agora2/node_modules && echo 'OK' || echo '미설치')"
 ```
 
-사전 조건 실패 시 먼저 해결합니다:
+사전 조건 실패 시:
 - Node 미설치 → "Node.js가 필요합니다. `brew install node`를 실행해주세요."
 - agora2 디렉토리 미발견 → "agora2가 ~/Developer/agora2에 설치되어 있어야 합니다. SETUP-GUIDE.md를 확인해주세요."
-- node_modules 미설치 → "의존성을 설치합니다..." → Bash로 `cd $HOME/Developer/agora2 && yarn install` 자동 실행
-
-사전 조건이 모두 통과하면 환경 스캔으로 넘어갑니다.
+- node_modules 미설치 → "의존성을 설치합니다..." → Bash로 `cd $HOME/Developer/agora2 && yarn install` 자동 실행. 실패 시 "yarn install에 실패했습니다. 네트워크 상태를 확인하고 수동으로 실행해주세요."
 
 **환경 스캔:**
 
-Bash로 로컬 환경을 깊이 스캔합니다 (zshrc, bashrc, zprofile, zshenv, config 파일 모두 확인):
 ```
 echo "=== 환경 스캔 ==="
-echo "--- Claude ---"
-[ -n "$ANTHROPIC_API_KEY" ] && echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:0:10}..." || echo "ANTHROPIC_API_KEY: 없음"
-[ "$CLAUDE_CODE_USE_BEDROCK" = "1" ] && echo "BEDROCK: 사용 중" || echo "BEDROCK: 미사용"
-[ -n "$ANTHROPIC_MODEL" ] && echo "MODEL: $ANTHROPIC_MODEL" || echo "MODEL: 감지 안 됨"
-grep -h "ANTHROPIC_API_KEY" ~/.zshrc ~/.bashrc ~/.zprofile ~/.zshenv 2>/dev/null | grep -v "^#" | head -1 || true
+echo "--- Claude Code ---"
+echo "SESSION_MODEL: ${ANTHROPIC_MODEL:-감지 안 됨}"
 echo "--- Gemini ---"
-which gemini 2>/dev/null && echo "GEMINI_CLI: $(gemini --version 2>/dev/null | head -1)" || echo "GEMINI_CLI: 미설치"
+which gemini 2>/dev/null && echo "GEMINI_CLI: 설치됨 ($(gemini --version 2>/dev/null | head -1))" || echo "GEMINI_CLI: 미설치"
 echo "--- Copilot ---"
-which gh 2>/dev/null && echo "GH_CLI: $(gh --version 2>/dev/null | head -1)" || echo "GH_CLI: 미설치"
-gh auth status 2>&1 | head -3
-gh copilot --version 2>/dev/null && echo "COPILOT_EXT: 설치됨 ($(gh copilot --version 2>/dev/null | head -1))" || echo "COPILOT_EXT: 미설치"
+if which gh &>/dev/null; then
+  echo "GH_CLI: 설치됨 ($(gh --version 2>/dev/null | head -1))"
+  gh auth status 2>&1 | head -3
+  gh copilot --version 2>/dev/null && echo "COPILOT_EXT: 설치됨" || echo "COPILOT_EXT: 미설치"
+else
+  echo "GH_CLI: 미설치"
+  echo "COPILOT_EXT: 미설치 (gh 필요)"
+fi
 echo "--- GitLab ---"
 [ -n "$GITLAB_TOKEN" ] && echo "GITLAB_TOKEN: ${GITLAB_TOKEN:0:10}..." || echo "GITLAB_TOKEN: 없음"
 [ -n "$GITLAB_PRIVATE_TOKEN" ] && echo "GITLAB_PRIVATE_TOKEN: ${GITLAB_PRIVATE_TOKEN:0:10}..." || echo "GITLAB_PRIVATE_TOKEN: 없음"
 grep -h "GITLAB_TOKEN\|GITLAB_PRIVATE_TOKEN" ~/.zshrc ~/.bashrc ~/.zprofile ~/.zshenv 2>/dev/null | grep -v "^#" | head -1 || true
-echo "--- Claude Code ---"
-echo "SESSION_MODEL: ${ANTHROPIC_MODEL:-감지 안 됨}"
 ```
 
 추가로 Claude memory에 저장된 GitLab 토큰이 있는지도 확인합니다.
 
-**스캔 결과를 대시보드 형태로 보여줍니다:**
+**대시보드 표시:**
 
 ```
 ━━━ 환경 스캔 결과 ━━━━━━━━━━━━━━━━━━━━━━━
 
   도구        상태              비고
   ──────────  ───────────────  ──────────────────
-  🐶 Claude   ✅ Bedrock       AWS 인증 사용
-  🐻 Gemini   ✅ CLI v0.37.0   인증 필요 여부 확인
-  🐱 Copilot  ⚠️ 확장 미설치    gh는 있음, 확장만 설치하면 OK
-  📋 GitLab   ✅ 토큰 발견      memory에서 확인
-  🎙️ MC       ✅ Opus 4.6      Claude Code 세션 모델
+  🐶 Claude   ✅ 자동          Claude Code 세션 사용 (설정 불필요)
+  🐻 Gemini   {✅/❌} {상태}    {버전 또는 미설치}
+  🐱 Copilot  {✅/⚠️/❌} {상태}  {상세}
+  📋 GitLab   {✅/❌} {상태}    {토큰 출처}
+  🎙️ MC       ✅ 자동          Claude Code ({모델명})
 
-  준비됨: 2/3 AI  |  1건 조치 필요
+  준비됨: {N}/2 AI  |  {M}건 조치 필요
 ```
 
-이 대시보드를 보고 사용자가 전체 상황을 한눈에 파악할 수 있게 합니다.
+**모든 것이 준비된 경우 (Happy Path):**
 
-**각 AI별 AskUserQuestion으로 확인 (4개 모두 물어봅니다):**
+Gemini + Copilot 모두 준비 완료인 경우, 전체 설정을 하나씩 물어보지 않고 단축 옵션을 제공합니다.
 
-각 AI 설정을 물어볼 때, 스캔 결과에 따라 선택지를 동적으로 구성합니다.
-이미 준비된 AI는 간단히 확인만, 설치가 필요한 AI는 자동 설치를 제안합니다.
+AskUserQuestion:
+질문: "모든 AI가 준비되어 있습니다. 기본 설정으로 바로 진행할까요?"
+선택지:
+- A) 바로 진행 (권장) — 감지된 설정 그대로 사용
+- B) 개별 설정 — AI마다 하나씩 확인
 
-**1) Claude** — 스캔 결과에 따라 선택지 구성:
+A 선택 시: 기본 모델(Gemini 2.0 Flash)로 .env.agora 생성 → 연결 테스트 → 완료.
+B 선택 시: 아래 개별 설정 플로우로 진행.
 
-- Bedrock 감지 시:
-  질문: "Claude는 AWS Bedrock 경유로 사용 중입니다."
-  선택지:
-  - A) Bedrock 사용 (권장, 기존 AWS 인증 그대로)
-  - B) Anthropic API 키 직접 입력
+**개별 AI 설정 (AskUserQuestion):**
 
-- ANTHROPIC_API_KEY 발견 시:
-  질문: "Anthropic API 키가 있습니다 ({앞 10자}...)."
-  선택지:
-  - A) 이 키 사용 (권장)
-  - B) 새 키 입력
+Claude는 Claude Code 세션 자체를 사용하므로 설정이 불필요합니다. Gemini, Copilot, GitLab만 설정합니다.
 
-- 둘 다 없을 때:
-  질문: "Claude API 키를 찾지 못했습니다. Claude Code 구독과는 별개로 API 키를 따로 만들어야 합니다."
-  선택지:
-  - A) API 키 입력 — Anthropic 콘솔(https://console.anthropic.com)에서 발급
-  - B) 건너뛰기 — Claude 리뷰어 없이 진행 (MC 역할은 계속 수행)
+**1) Gemini** — 스캔 결과에 따라 선택지 구성:
 
-**2) Gemini** — 스캔 결과에 따라 선택지 구성:
-
-- CLI 설치됨:
-  질문: "Gemini CLI가 설치되어 있습니다 (v{버전})."
+- CLI 설치됨 + 인증됨:
+  질문: "Gemini CLI가 준비되어 있습니다 (v{버전})."
   선택지:
   - A) 이대로 사용 (권장)
   - B) 건너뛰기
@@ -124,41 +110,47 @@ echo "SESSION_MODEL: ${ANTHROPIC_MODEL:-감지 안 됨}"
   - B) Gemini 2.5 Pro (더 정확, 유료 플랜 필요할 수 있음)
   - C) Gemini 2.5 Flash (균형형)
 
-  .env.agora에 GEMINI_MODEL=선택한모델 저장
+  → .env.agora에 `GEMINI_MODEL=선택한모델` 저장
+
+- CLI 설치됨 + 인증 안 됨 (스캔에서 인증 상태 불확실):
+  질문: "Gemini CLI가 설치되어 있지만 인증이 필요할 수 있습니다. 연결 테스트에서 확인합니다."
+  선택지:
+  - A) 이대로 사용 (권장, 연결 테스트에서 확인)
+  - B) 건너뛰기
+
+  A 선택 시 모델 선택 → .env.agora에 저장
 
 - CLI 미설치:
   질문: "Gemini CLI가 설치되지 않았습니다."
   선택지:
-  - A) 자동 설치 시도 — Bash로 `npm install -g @anthropic-ai/gemini-cli 2>/dev/null || brew install gemini 2>/dev/null` 실행. 실패하면 https://github.com/google-gemini/gemini-cli 안내.
+  - A) 설치 안내 — "https://github.com/google-gemini/gemini-cli 에서 설치 후 `gemini auth login`으로 인증해주세요. 완료 후 `/agora-setup`으로 다시 설정하면 됩니다."
   - B) 건너뛰기
 
-  A에서 설치 성공 시:
-  "✅ Gemini CLI 설치 완료! `gemini auth login`으로 인증이 필요합니다."
-  → Bash로 `! gemini auth login` 안내
-
-**3) GitHub Copilot** — 단계별 자동 해결:
-
-스캔 결과에 따라 **해결 가능한 건 자동으로 해결을 제안**합니다.
+**2) GitHub Copilot** — 단계별 자동 해결:
 
 - gh CLI 미설치:
   질문: "GitHub CLI(gh)가 필요합니다."
   선택지:
-  - A) 자동 설치 — Bash로 `brew install gh` 실행
-  - B) 건너뛰기 — Copilot 없이 진행 (Claude + Gemini로 충분합니다)
+  - A) 자동 설치 — Bash로 `brew install gh` 실행. Homebrew 없으면 "https://cli.github.com 에서 설치 방법을 확인해주세요."
+  - B) 건너뛰기 — Copilot 없이 진행
 
-  A에서 설치 성공 → 자동으로 다음 단계(인증)로 진행
+  A에서 설치 성공 → 다음 단계(인증)로 자동 진행
 
 - gh 설치됨 + 인증 안 됨:
-  질문: "GitHub 로그인이 필요합니다."
+  질문: "GitHub 로그인이 필요합니다. 터미널에서 `! gh auth login`을 실행해주세요."
   선택지:
-  - A) 지금 인증 — "터미널에서 `! gh auth login`을 실행해주세요. 완료되면 엔터를 눌러주세요."
+  - A) 인증 완료 후 계속 — 인증 후 여기로 돌아오면 됩니다
   - B) 건너뛰기
 
+  참고: `! 명령어`는 Claude Code에서 터미널 명령을 직접 실행하는 방법입니다.
+
 - gh 인증됨 + copilot 확장 미설치:
-  질문: "Copilot CLI 확장을 설치할까요? (자동)"
+  질문: "Copilot CLI 확장을 설치할까요?"
   선택지:
-  - A) 설치 — Bash로 `gh extension install github/gh-copilot` 자동 실행
+  - A) 설치 — Bash로 `gh extension install github/gh-copilot` 자동 실행. 실패 시 "설치에 실패했습니다. 수동으로 실행해주세요."
   - B) 건너뛰기
+
+  A 설치 성공 → "✅ 설치 완료!" 표시 후 다음 단계로
 
 - 전부 OK:
   질문: "GitHub Copilot이 준비되어 있습니다 (Sonnet 4.6)."
@@ -166,15 +158,15 @@ echo "SESSION_MODEL: ${ANTHROPIC_MODEL:-감지 안 됨}"
   - A) 이대로 사용 (권장)
   - B) 건너뛰기
 
-참고: Copilot은 유료 구독(Individual $10/월, Business $19/월)이 필요합니다.
+참고: Copilot은 유료 구독(Individual $10/월, Business $19/월)이 필요합니다. 연결 테스트에서 확인됩니다.
 
-**4) GitLab** — 스캔 결과에 따라 선택지 구성:
+**3) GitLab** — 스캔 결과에 따라 선택지 구성:
 
 - 환경변수 또는 memory에서 토큰 발견 시:
   질문: "GitLab 토큰이 있습니다 ({앞 10자}...)."
   선택지:
-  - A) 이 토큰 사용 (권장)
-  - B) 새 토큰 입력
+  - A) 이 토큰 사용 (권장) → .env.agora에 `GITLAB_TOKEN=토큰값` 저장
+  - B) 새 토큰 입력 → 입력받은 후 .env.agora에 저장
   - C) 건너뛰기 — 로컬 git diff만 사용
 
 - 없을 때:
@@ -183,44 +175,66 @@ echo "SESSION_MODEL: ${ANTHROPIC_MODEL:-감지 안 됨}"
   - A) 토큰 입력 — GitLab → Settings → Access Tokens에서 발급
   - B) 건너뛰기 — 로컬 git diff만 사용
 
-**연결 테스트:**
+**.env.agora 파일 생성:**
 
-모든 설정이 끝나면 `.env.agora` 파일을 생성하고, 설정된 AI의 연결을 테스트합니다.
+모든 설정이 끝나면 Bash로 `.env.agora` 파일을 생성합니다. 포맷:
+```
+# Agora 설정 파일 (자동 생성)
+GEMINI_MODEL=gemini-2.0-flash
+GITLAB_TOKEN=glpat-xxxxx
+```
+
+Claude 관련 설정은 저장하지 않습니다 (Claude Code 세션 자체를 사용하므로).
+Copilot 관련 설정도 저장하지 않습니다 (gh CLI 인증 상태를 그대로 사용).
+
+**연결 테스트:**
 
 "설정을 저장하고 연결을 확인합니다..."
 
-Bash로 테스트 실행:
 ```
 cd $HOME/Developer/agora2 && npx tsx scripts/agora-review.ts --test
 ```
 
-테스트 결과를 대시보드로 보여줍니다:
+스크립트는 Gemini와 Copilot에 "Hello"를 보내고 응답 여부/시간을 JSON으로 반환합니다.
+
+테스트 결과 대시보드:
 ```
 ━━━ 연결 테스트 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  AI          상태              응답 시간
-  ──────────  ───────────────  ──────────
-  🐻 Gemini   ✅ 정상           1.2초
-  🐱 Copilot  ✅ 정상           2.5초
+  AI          상태     모델           응답 시간
+  ──────────  ──────  ─────────────  ──────────
+  🐶 Claude   ✅ 자동  {세션 모델}     —
+  🐻 Gemini   ✅ 정상  2.0 Flash      1.2초
+  🐱 Copilot  ✅ 정상  Sonnet 4.6     2.5초
 ```
 
-실패한 AI가 있으면 원인별 복구 안내 + 재시도 옵션:
+Claude는 연결 테스트 대상이 아닙니다 (자체 리뷰이므로 항상 가용). 대시보드에 "✅ 자동"으로 표시.
 
-```
-  🐱 Copilot  ❌ 실패           —
-     원인: Copilot 구독이 필요합니다
-     조치: 구독 없이도 Claude + Gemini 2개 AI로 리뷰 가능합니다
-```
+**실패 시 처리:**
 
-실패 시 AskUserQuestion:
-질문: "{AI명} 연결에 실패했습니다."
+실패한 AI가 있으면 원인별 복구 안내:
+- Gemini 인증 에러 → "Gemini 인증이 필요합니다. 터미널에서 `! gemini auth login`을 실행해주세요."
+- Copilot 라이센스 없음 → "Copilot 구독이 필요합니다. https://github.com/features/copilot 에서 구독하거나, 건너뛰어도 됩니다."
+- 타임아웃 → "응답이 너무 느립니다. 네트워크 상태를 확인해주세요."
+
+실패한 AI에 대해 AskUserQuestion (한번에, 실패한 AI 전체를 묶어서):
+질문: "{실패 AI 목록} 연결에 실패했습니다. 어떻게 하시겠어요?"
 선택지:
-- A) 재시도 — 다시 테스트 실행
-- B) 설정 변경 — 해당 AI 설정으로 돌아가기
-- C) 건너뛰기 — 이 AI 없이 진행
+- A) 전체 재시도 (최대 1회)
+- B) 실패한 AI 건너뛰고 진행
+- C) 셋업 종료 — 나중에 `/agora-setup`으로 다시 설정
 
-2개 이상 성공하면 진행 가능.
-전체 실패 시: "❌ 모든 AI 연결에 실패했습니다. `/agora-setup`으로 재설정해주세요."
+재시도는 **1회만** 허용합니다. 재시도 후에도 실패하면 자동으로 건너뛰기로 처리합니다.
+
+**최소 AI 요건:**
+
+Gemini + Copilot 중 최소 1개가 연결되어야 합니다 (Claude는 항상 가용).
+- 2개 성공: "3개 AI 준비 완료!"
+- 1개 성공: "⚠️ 2개 AI로 진행합니다. 비교 정확도가 떨어질 수 있습니다."
+- 0개 성공: "❌ 외부 AI가 모두 실패했습니다. Claude 단독 리뷰만 가능합니다. 멀티 AI 비교를 원하면 `/agora-setup`으로 재설정해주세요."
+  선택지:
+  - A) Claude 단독 리뷰로 진행
+  - B) 셋업 종료
 
 **셋업 완료:**
 
@@ -229,26 +243,22 @@ cd $HOME/Developer/agora2 && npx tsx scripts/agora-review.ts --test
 
   AI          상태        모델
   ──────────  ─────────  ──────────────
-  🐶 Claude   ✅ Bedrock  Opus 4.6
-  🐻 Gemini   ✅ CLI      2.0 Flash
+  🐶 Claude   ✅ 자동     {세션 모델}
+  🐻 Gemini   ✅ CLI      {선택한 모델}
   🐱 Copilot  ✅ CLI      Sonnet 4.6
   📋 GitLab   ✅ 토큰     설정됨
-  🎙️ MC       ✅ 자동     Opus 4.6
+  🎙️ MC       ✅ 자동     {세션 모델} (중재자)
 
-  3개 AI + MC 준비 완료! 리뷰를 시작할 수 있습니다.
+  리뷰를 시작할 수 있습니다!
 ```
 
-리뷰 대상 선택으로 넘어갑니다 (아래 "리뷰 대상 선택" 참조).
-
-만약 설정된 AI가 2개 미만이면:
-"최소 2개 AI가 필요합니다." → 부족한 AI 설정으로 돌아갑니다.
+리뷰 대상 선택으로 넘어갑니다.
 
 ### READY인 경우 — 바로 리뷰 진행
 
 .env.agora를 Bash로 읽어서 설정 상태를 간단히 표시합니다:
 ```
 source $HOME/Developer/agora2/.env.agora 2>/dev/null
-echo "CLAUDE_USE_BEDROCK=${CLAUDE_USE_BEDROCK:-0}"
 echo "GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}"
 echo "ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-감지 안 됨}"
 ```
