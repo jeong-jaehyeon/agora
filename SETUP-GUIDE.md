@@ -4,25 +4,25 @@
 
 ## 설치 (5분)
 
-### 1. agora2 폴더를 받으세요
+### 1. agora 폴더를 받으세요
 
-팀원에게 `agora2.zip`을 전달받았다면:
+팀원에게 `agora.zip`을 전달받았다면:
 
 ```bash
-unzip agora2.zip -d ~/Developer/
+unzip agora.zip -d ~/Developer/
 ```
 
 또는 폴더를 직접 복사:
 ```bash
-cp -r /전달받은경로/agora2 ~/Developer/agora2
+cp -r /전달받은경로/agora ~/Developer/agora
 ```
 
-> **중요:** `~/Developer/agora2` 경로에 놓아야 합니다.
+> **중요:** `~/Developer/agora` 경로에 놓아야 합니다.
 
 ### 2. 의존성 설치
 
 ```bash
-cd ~/Developer/agora2
+cd ~/Developer/agora
 yarn install
 ```
 
@@ -32,8 +32,8 @@ yarn install
 
 ```bash
 mkdir -p ~/.claude/commands
-cp ~/Developer/agora2/.claude/commands/agora-review.md ~/.claude/commands/
-cp ~/Developer/agora2/.claude/commands/agora-setup.md ~/.claude/commands/
+cp ~/Developer/agora/.claude/commands/agora-review.md ~/.claude/commands/
+cp ~/Developer/agora/.claude/commands/agora-setup.md ~/.claude/commands/
 ```
 
 ### 4. 끝!
@@ -119,7 +119,7 @@ gh extension install github/gh-copilot
 ### 그래도 안 되면
 ```bash
 # 설정 파일 확인
-cat ~/Developer/agora2/.env.agora
+cat ~/Developer/agora/.env.agora
 ```
 
 ---
