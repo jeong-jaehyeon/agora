@@ -62,7 +62,7 @@ const SAMPLE_PROMPT = '코드 리뷰 프롬프트...'
 
 describe('callGemini', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   it('정상 응답 → response 반환', async () => {
@@ -99,7 +99,7 @@ describe('callGemini', () => {
 
 describe('callCopilot', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   it('정상 응답 → response 반환', async () => {
@@ -142,7 +142,7 @@ describe('callCopilot', () => {
 
 describe('callExternalAIs', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   it('2개 모두 성공 → 2개 결과, 경고 없음, totalDurationMs 포함', async () => {
@@ -226,7 +226,7 @@ describe('loadCopilotModel', () => {
 
 describe('runConnectionTest', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   it('두 AI 모두 성공 → ok: true, responseTime 포함', async () => {
@@ -280,7 +280,7 @@ describe('runConnectionTest', () => {
 // ─── History Tests ──────────────────────────────────────
 
 describe('saveReviewHistory', () => {
-  const testDir = join(tmpdir(), '.agora-test-reviews')
+  const testDir = join(tmpdir(), '.agora', 'reviews')
 
   afterEach(() => {
     try { rmSync(testDir, { recursive: true, force: true }) } catch {}
@@ -291,24 +291,26 @@ describe('saveReviewHistory', () => {
     const originalHomedir = process.env.HOME
     process.env.HOME = tmpdir()
 
-    const output = {
-      results: [{ ai: 'Gemini', icon: '🐻', response: '리뷰 결과', model: 'gemini-2.0-flash', durationMs: 1000 }],
-      warnings: [],
-      diffLineCount: 10,
-      totalDurationMs: 1500,
+    try {
+      const output = {
+        results: [{ ai: 'Gemini', icon: '🐻', response: '리뷰 결과', model: 'gemini-2.0-flash', durationMs: 1000 }],
+        warnings: [],
+        diffLineCount: 10,
+        totalDurationMs: 1500,
+      }
+
+      const savedPath = saveReviewHistory(output, '/tmp/agora-diff-42.diff')
+
+      expect(savedPath).toContain('.agora/reviews/')
+      expect(savedPath).toContain('agora-diff-42.json')
+      expect(existsSync(savedPath)).toBe(true)
+
+      const savedContent = JSON.parse(readFileSync(savedPath, 'utf-8'))
+      expect(savedContent.results).toHaveLength(1)
+      expect(savedContent.diffLineCount).toBe(10)
+    } finally {
+      if (originalHomedir === undefined) delete process.env.HOME
+      else process.env.HOME = originalHomedir
     }
-
-    const savedPath = saveReviewHistory(output, '/tmp/agora-diff-42.diff')
-
-    expect(savedPath).toContain('.agora/reviews/')
-    expect(savedPath).toContain('agora-diff-42.json')
-    expect(existsSync(savedPath)).toBe(true)
-
-    const savedContent = JSON.parse(readFileSync(savedPath, 'utf-8'))
-    expect(savedContent.results).toHaveLength(1)
-    expect(savedContent.diffLineCount).toBe(10)
-
-    // 정리
-    process.env.HOME = originalHomedir
   })
 })
