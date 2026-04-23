@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
-import { execSync } from 'child_process'
+import { spawn } from 'child_process'
 import { homedir } from 'os'
 import { join, basename } from 'path'
 import { loadGeminiModel, loadCopilotModel } from './env'
@@ -40,6 +40,7 @@ interface AgoraTestOutput {
 
 const MAX_DIFF_LINES = 3000
 const CLI_TIMEOUT = 120000 // 2분
+const MAX_BUFFER = 10 * 1024 * 1024
 
 const REVIEW_PROMPT = (diff: string) => `당신은 코드 리뷰어입니다. 아래 diff를 리뷰하고, 반드시 아래 형식으로만 응답하세요. 형식을 임의로 변경하지 마세요.
 
@@ -85,17 +86,50 @@ function formatTimestamp(date: Date): string {
   return `${y}${mo}${d}-${h}${mi}${s}`
 }
 
+// ─── spawn helper ────────────────────────────────────────
+
+function spawnCLI(command: string, args: string[], prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+
+    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
+
+    if (prompt) {
+      proc.stdin.write(prompt, 'utf-8')
+    }
+    proc.stdin.end()
+
+    const timer = setTimeout(() => {
+      proc.kill('SIGTERM')
+      const err = new Error(`CLI timeout after ${CLI_TIMEOUT}ms`) as NodeJS.ErrnoException
+      err.code = 'ETIMEDOUT'
+      reject(err)
+    }, CLI_TIMEOUT)
+
+    proc.on('close', (code) => {
+      clearTimeout(timer)
+      if (code === 0) resolve(stdout)
+      else reject(Object.assign(new Error(stderr || `exited with code ${code}`), { code }))
+    })
+
+    proc.on('error', (err: NodeJS.ErrnoException) => {
+      clearTimeout(timer)
+      reject(err)
+    })
+  })
+}
+
 // ─── AI Callers ──────────────────────────────────────────
 
-export function callGemini(prompt: string): ReviewResult {
+export async function callGemini(prompt: string): Promise<ReviewResult> {
   const model = loadGeminiModel()
   const startTime = Date.now()
 
   try {
-    const stdout = execSync(
-      'gemini -o text',
-      { input: prompt, encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024 },
-    )
+    const stdout = await spawnCLI('gemini', ['-o', 'text'], prompt)
 
     return {
       ai: 'Gemini',
@@ -116,12 +150,12 @@ export function callGemini(prompt: string): ReviewResult {
   }
 }
 
-export function callCopilot(prompt: string): ReviewResult {
+export async function callCopilot(prompt: string): Promise<ReviewResult> {
   const model = loadCopilotModel()
   const startTime = Date.now()
 
   try {
-    execSync('gh copilot --version', { stdio: 'pipe' })
+    await spawnCLI('gh', ['copilot', '--version'], '')
   } catch {
     return {
       ai: 'Copilot',
@@ -134,10 +168,7 @@ export function callCopilot(prompt: string): ReviewResult {
   }
 
   try {
-    const stdout = execSync(
-      `gh copilot -- --model ${model} -s`,
-      { input: prompt, encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024 },
-    )
+    const stdout = await spawnCLI('gh', ['copilot', '--', '--model', model, '-s'], prompt)
 
     return {
       ai: 'Copilot',
@@ -160,7 +191,7 @@ export function callCopilot(prompt: string): ReviewResult {
 
 // ─── Orchestrator ────────────────────────────────────────
 
-export function callExternalAIs(diff: string): AgoraOutput {
+export async function callExternalAIs(diff: string): Promise<AgoraOutput> {
   const totalStart = Date.now()
   const warnings: string[] = []
   const diffLineCount = diff.split('\n').length
@@ -171,9 +202,8 @@ export function callExternalAIs(diff: string): AgoraOutput {
 
   const prompt = REVIEW_PROMPT(diff)
 
-  // Gemini와 Copilot 순차 호출
-  const geminiResult = callGemini(prompt)
-  const copilotResult = callCopilot(prompt)
+  // Gemini와 Copilot 병렬 호출
+  const [geminiResult, copilotResult] = await Promise.all([callGemini(prompt), callCopilot(prompt)])
 
   const results = [geminiResult, copilotResult]
 
@@ -190,7 +220,7 @@ export function callExternalAIs(diff: string): AgoraOutput {
 
 // ─── Connection Test ─────────────────────────────────────
 
-export function runConnectionTest(): AgoraTestOutput {
+export async function runConnectionTest(): Promise<AgoraTestOutput> {
   const tests: TestResult[] = []
 
   // Gemini 테스트
@@ -198,10 +228,7 @@ export function runConnectionTest(): AgoraTestOutput {
   const geminiStart = Date.now()
   {
     try {
-      execSync(
-        'gemini -o text',
-        { input: 'Hello', encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
-      )
+      await spawnCLI('gemini', ['-o', 'text'], 'Hello')
       tests.push({ ai: 'Gemini', icon: '🐻', ok: true, model: geminiModel, responseTime: Date.now() - geminiStart })
     } catch (e) {
       tests.push({ ai: 'Gemini', icon: '🐻', ok: false, model: geminiModel, error: e instanceof Error ? e.message : String(e) })
@@ -211,7 +238,7 @@ export function runConnectionTest(): AgoraTestOutput {
   // Copilot 테스트
   const copilotStart = Date.now()
   try {
-    execSync('gh copilot --version', { stdio: 'pipe' })
+    await spawnCLI('gh', ['copilot', '--version'], '')
   } catch (e) {
     tests.push({ ai: 'Copilot', icon: '🐱', ok: false, error: e instanceof Error ? e.message : String(e) })
     return { tests }
@@ -219,10 +246,7 @@ export function runConnectionTest(): AgoraTestOutput {
   {
     try {
       const copilotModel = loadCopilotModel()
-      execSync(
-        `gh copilot -- --model ${copilotModel} -s`,
-        { input: 'Hello', encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
-      )
+      await spawnCLI('gh', ['copilot', '--', '--model', copilotModel, '-s'], 'Hello')
       tests.push({ ai: 'Copilot', icon: '🐱', ok: true, model: copilotModel, responseTime: Date.now() - copilotStart })
     } catch (e) {
       tests.push({ ai: 'Copilot', icon: '🐱', ok: false, error: e instanceof Error ? e.message : String(e) })
@@ -249,10 +273,10 @@ export function saveReviewHistory(output: AgoraOutput, diffPath: string): string
 
 // ─── Main ────────────────────────────────────────────────
 
-function main() {
+async function main() {
   // --test 플래그 처리
   if (process.argv.includes('--test')) {
-    const testOutput = runConnectionTest()
+    const testOutput = await runConnectionTest()
     console.log(JSON.stringify(testOutput))
     return
   }
@@ -262,7 +286,7 @@ function main() {
     const diffPath = process.argv.find(a => !a.startsWith('-') && a !== process.argv[0] && a !== process.argv[1])
     if (!diffPath) { console.error('diff 파일 경로 필요'); process.exit(1) }
     const diff = readFileSync(diffPath, 'utf-8')
-    const result = callGemini(REVIEW_PROMPT(diff))
+    const result = await callGemini(REVIEW_PROMPT(diff))
     console.log(JSON.stringify(result))
     return
   }
@@ -272,7 +296,7 @@ function main() {
     const diffPath = process.argv.find(a => !a.startsWith('-') && a !== process.argv[0] && a !== process.argv[1])
     if (!diffPath) { console.error('diff 파일 경로 필요'); process.exit(1) }
     const diff = readFileSync(diffPath, 'utf-8')
-    const result = callCopilot(REVIEW_PROMPT(diff))
+    const result = await callCopilot(REVIEW_PROMPT(diff))
     console.log(JSON.stringify(result))
     return
   }
@@ -309,7 +333,7 @@ function main() {
     process.exit(0)
   }
 
-  const output = callExternalAIs(diff)
+  const output = await callExternalAIs(diff)
 
   // 히스토리 저장
   const savedTo = saveReviewHistory(output, diffPath)
