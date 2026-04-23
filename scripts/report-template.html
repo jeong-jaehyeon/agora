@@ -300,6 +300,7 @@
   }
   .badge.consensus { background: var(--success-dim); color: var(--success); }
   .badge.solo { background: var(--accent-dim); color: var(--accent); }
+  .badge.needs-verify { background: rgba(255,200,87,0.15); color: #b45309; }
 
   .issue-body {
     display: none;
@@ -822,12 +823,12 @@ const hasPermission = await roleStore
         <div class="opinions">
           <div class="op"><span class="op-name g">🐻 Gemini</span> production 같은 표준 명칭 또는 피처 플래그 사용 권장</div>
           <div class="op"><span class="op-name p">🐱 Copilot</span> NODE_ENV=production이면 조건이 true가 되어 프로덕션에 API 노출 위험</div>
-          <div class="op"><span class="op-name c">🐶 Claude</span> TOVICE는 local/dev/test/live 4단계 환경 사용. 'live'가 곧 production.</div>
+          <div class="op"><span class="op-name c">🐶 Claude</span> 이 프로젝트는 local/dev/test/live 4단계 환경 사용. 'live'가 곧 production.</div>
         </div>
         <div class="verdict">
           <div class="verdict-label">🎙️ MC 판정</div>
           이슈 아님. Gemini/Copilot은 일반적인 Node.js 관례로 판단했지만,
-          TOVICE 프로젝트는 자체 환경 체계(local, dev, test, live)를 사용합니다.
+          이 프로젝트는 자체 환경 체계(local, dev, test, live)를 사용합니다.
           'live'가 이 프로젝트의 production입니다.
         </div>
       </div>

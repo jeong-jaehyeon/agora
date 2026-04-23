@@ -1,131 +1,99 @@
 # 🏛️ Agora 설치 가이드
 
-> 3개 AI에게 동시에 코드 리뷰를 받고, 결과를 비교해서 보여주는 도구입니다.
+## 이게 뭐야?
 
-## 설치 (5분)
+코드 리뷰를 3개 AI한테 동시에 시키고, 결과를 비교해서 보여주는 도구야.
+Claude Code에서 `/agora-review` 치면 바로 실행돼.
 
-### 1. agora 폴더를 받으세요
+## 설치 (3분)
 
-팀원에게 `agora.zip`을 전달받았다면:
+터미널을 열고 아래 명령어를 **순서대로** 복붙해.
+
+### 1단계: 폴더 준비
 
 ```bash
-unzip agora.zip -d ~/Developer/
+# zip 풀기 (에어드랍으로 받은 파일)
+unzip ~/Downloads/agora.zip -d ~/Developer/
 ```
 
-또는 폴더를 직접 복사:
-```bash
-cp -r /전달받은경로/agora ~/Developer/agora
-```
+> 이미 `~/Developer/agora` 폴더가 있으면 이 단계 건너뛰어.
 
-> **중요:** `~/Developer/agora` 경로에 놓아야 합니다.
-
-### 2. 의존성 설치
+### 2단계: 의존성 설치
 
 ```bash
 cd ~/Developer/agora
 yarn install
 ```
 
-### 3. 글로벌 커맨드 등록
-
-이 명령어를 실행하면 어떤 프로젝트에서든 `/agora-review`를 사용할 수 있습니다.
+### 3단계: 명령어 등록
 
 ```bash
 mkdir -p ~/.claude/commands
-cp ~/Developer/agora/.claude/commands/agora-review.md ~/.claude/commands/
-cp ~/Developer/agora/.claude/commands/agora-setup.md ~/.claude/commands/
+cp ~/Developer/agora/.claude/commands/*.md ~/.claude/commands/
 ```
 
-### 4. 끝!
+이걸 하면 **아무 프로젝트에서나** `/agora-review`를 쓸 수 있어.
 
-아무 프로젝트에서 Claude Code를 열고:
+### 끝!
 
-```
+```bash
+# 아무 프로젝트 폴더에서 Claude Code 열고
+claude
+
+# 이렇게 치면 돼
 /agora-review
 ```
 
-처음 실행하면 자동으로 설정 대화가 시작됩니다.
+처음 실행하면 Gemini, Copilot, GitLab 설정을 안내해줘. 그냥 선택지 따라가면 돼.
 
 ---
 
-## 첫 실행 시 무슨 일이 일어나나요?
+## 처음 실행하면 뭐가 나와?
 
 ```
 🏛️ 안녕하세요! Agora입니다.
 
 코드 리뷰를 3개 AI(Claude, Gemini, Copilot)에게 동시에 맡기고,
 누가 뭘 발견했는지 비교해서 보여주는 도구예요.
-
-처음이시네요! 간단한 설정부터 시작할게요.
 ```
 
-로컬 환경을 자동으로 스캔해서 이미 있는 API 키나 인증 정보를 찾아줍니다.
-각 AI마다 선택지가 나오고, 기존 키가 있으면 "이 키를 사용할까요?"로 물어봅니다.
+그 다음 하나씩 물어봐:
+- **Gemini** → `gemini` CLI가 설치되어 있으면 자동 감지. 없으면 건너뛰기 가능.
+- **Copilot** → `gh copilot`이 있으면 자동 감지. 유료 구독 필요. 없으면 건너뛰기 가능.
+- **GitLab** → MR URL로 리뷰하려면 토큰 필요. 로컬 diff만 쓸 거면 건너뛰기.
 
-### 필요한 인증 정보
-
-| AI | 필요한 것 | 없으면? |
-|----|-----------|---------|
-| 🐶 Claude | 별도 설정 불필요 (Claude Code 세션 사용) | - |
-| 🐻 Gemini | `gemini` CLI + Google OAuth | `gemini auth login` 실행 |
-| 🐱 Copilot | `gh auth login` + `gh copilot` 확장 | 안내해줌 |
-| 📋 GitLab | GitLab Private Token | MR URL 사용 시만 필요 |
-
-설정이 끝나면 연결 테스트를 자동으로 해줍니다.
+**최소 Gemini 또는 Copilot 중 1개만 있으면 돼.** Claude는 자동으로 참여해.
 
 ---
 
 ## 사용법
 
-### GitLab MR 리뷰
-```
-/agora-review https://gitlab.nexon.com/qualitysolution/tovice/tovice-server/-/merge_requests/131
-```
-
-### 최근 커밋 리뷰
-```
+```bash
+# GitLab MR 리뷰
 /agora-review
-→ "최근 커밋 리뷰" 선택
+# → "GitLab MR URL 입력" 선택 → URL 붙여넣기
+
+# 최근 커밋 리뷰
+/agora-review
+# → "최근 커밋 리뷰" 선택
 ```
 
-### 결과
-
-1-2분 후 브라우저에서 웹 리포트가 자동으로 열립니다:
-- 🔴 필수 / 🟡 권장 / 🔵 참고 분류
-- 3개 AI가 합의한 이슈는 높은 확신
-- 의견이 갈린 이슈는 MC가 판정
-- 체크박스로 할 일 관리
+리뷰가 끝나면 브라우저에서 웹 리포트가 자동으로 열려.
 
 ---
 
-## 문제가 생기면
+## 안 될 때
 
-### 설정을 다시 하고 싶을 때
-```
-/agora-setup
-```
-
-### Gemini가 안 될 때
-```bash
-gemini auth login
-```
-
-### Copilot이 안 될 때
-```bash
-gh auth login
-gh extension install github/gh-copilot
-```
-
-### 그래도 안 되면
-```bash
-# 설정 파일 확인
-cat ~/Developer/agora/.env.agora
-```
+| 증상 | 해결 |
+|------|------|
+| `/agora-review`가 안 먹혀 | 3단계(명령어 등록) 다시 해봐 |
+| Gemini 연결 실패 | 터미널에서 `gemini auth login` 실행 |
+| Copilot 연결 실패 | `gh auth login` → `gh extension install github/gh-copilot` |
+| 설정 다시 하고 싶어 | `/agora-setup` 실행 |
+| yarn install 안 돼 | `brew install node` 먼저 |
 
 ---
 
-## 참고
+## 궁금한 거 있으면
 
-- 리뷰 결과는 `~/.agora/reviews/`에 자동 저장됩니다
-- 다크/라이트 모드는 리포트 오른쪽 상단 🌙/☀️ 버튼
-- 최소 2개 AI가 설정되어야 사용 가능
+`/agora-review` 치면 알아서 안내해줘.

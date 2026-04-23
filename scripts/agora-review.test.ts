@@ -12,7 +12,7 @@ import {
   callCopilot,
   callExternalAIs,
   loadGeminiModel,
-  parseCopilotModel,
+  loadCopilotModel,
   runConnectionTest,
   saveReviewHistory,
 } from './agora-review'
@@ -32,10 +32,10 @@ describe('callGemini', () => {
   it('정상 응답 → response 반환', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
       const cmdStr = typeof cmd === 'string' ? cmd : ''
-      if (cmdStr.includes('gemini -p')) {
+      if (cmdStr.includes('gemini -o text')) {
         return 'line 42에 null 체크가 필요합니다.'
       }
-      return '' // rm cleanup 등
+      return ''
     })
 
     const result = callGemini(SAMPLE_PROMPT)
@@ -49,7 +49,7 @@ describe('callGemini', () => {
 
   it('CLI 실행 실패 → error 반환', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
-      if (typeof cmd === 'string' && cmd.includes('gemini')) {
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) {
         throw new Error('gemini: command not found')
       }
       return ''
@@ -64,7 +64,7 @@ describe('callGemini', () => {
 
   it('타임아웃 → error 반환', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
-      if (typeof cmd === 'string' && cmd.includes('gemini')) {
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) {
         throw new Error('ETIMEDOUT')
       }
       return ''
@@ -87,7 +87,7 @@ describe('callCopilot', () => {
       if (typeof cmd === 'string' && cmd.includes('--version')) {
         return 'GitHub Copilot CLI 1.0.22'
       }
-      if (typeof cmd === 'string' && cmd.includes('gh copilot -p')) {
+      if (typeof cmd === 'string' && cmd.includes('gh copilot -- --model')) {
         return 'null 체크가 빠져있습니다. Optional chaining을 권장합니다.'
       }
       return ''
@@ -112,7 +112,7 @@ describe('callCopilot', () => {
 
     const result = callCopilot(SAMPLE_PROMPT)
     expect(result.error).toContain('GitHub Copilot CLI')
-    expect(result.model).toBe('모델 자동 선택')
+    expect(result.model).toBeDefined()
     expect(result.durationMs).toBeGreaterThanOrEqual(0)
   })
 
@@ -121,7 +121,7 @@ describe('callCopilot', () => {
       if (typeof cmd === 'string' && cmd.includes('--version')) {
         return 'GitHub Copilot CLI 1.0.22'
       }
-      if (typeof cmd === 'string' && cmd.includes('gh copilot -p')) {
+      if (typeof cmd === 'string' && cmd.includes('gh copilot -- --model')) {
         throw new Error('API error')
       }
       return ''
@@ -141,9 +141,9 @@ describe('callExternalAIs', () => {
 
   it('2개 모두 성공 → 2개 결과, 경고 없음, totalDurationMs 포함', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
-      if (typeof cmd === 'string' && cmd.includes('gemini')) return 'Gemini 리뷰 결과'
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) return 'Gemini 리뷰 결과'
       if (typeof cmd === 'string' && cmd.includes('--version')) return '1.0.22'
-      if (typeof cmd === 'string' && cmd.includes('gh copilot -p')) return 'Copilot 리뷰 결과'
+      if (typeof cmd === 'string' && cmd.includes('gh copilot -- --model')) return 'Copilot 리뷰 결과'
       return ''
     })
 
@@ -161,9 +161,9 @@ describe('callExternalAIs', () => {
 
   it('1개 성공 + 1개 실패 → 경고 포함', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
-      if (typeof cmd === 'string' && cmd.includes('gemini')) throw new Error('fail')
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) throw new Error('fail')
       if (typeof cmd === 'string' && cmd.includes('--version')) return '1.0.22'
-      if (typeof cmd === 'string' && cmd.includes('gh copilot -p')) return 'Copilot OK'
+      if (typeof cmd === 'string' && cmd.includes('gh copilot -- --model')) return 'Copilot OK'
       return ''
     })
 
@@ -175,7 +175,7 @@ describe('callExternalAIs', () => {
   it('전체 실패 → 에러 경고', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
       if (typeof cmd === 'string' && cmd.includes('--version')) throw new Error('fail')
-      if (typeof cmd === 'string' && cmd.includes('gemini')) throw new Error('fail')
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) throw new Error('fail')
       return ''
     })
 
@@ -186,9 +186,9 @@ describe('callExternalAIs', () => {
 
   it('대형 diff → 경고 포함', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
-      if (typeof cmd === 'string' && cmd.includes('gemini')) return 'OK'
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) return 'OK'
       if (typeof cmd === 'string' && cmd.includes('--version')) return '1.0.22'
-      if (typeof cmd === 'string' && cmd.includes('gh copilot -p')) return 'OK'
+      if (typeof cmd === 'string' && cmd.includes('gh copilot -- --model')) return 'OK'
       return ''
     })
 
@@ -209,20 +209,11 @@ describe('loadGeminiModel', () => {
   })
 })
 
-describe('parseCopilotModel', () => {
-  it('응답에서 claude 모델명 추출', () => {
-    const response = '리뷰 결과입니다.\n\nclaude-sonnet-4.6'
-    expect(parseCopilotModel(response)).toBe('claude-sonnet-4.6')
-  })
-
-  it('응답에서 gpt 모델명 추출', () => {
-    const response = '리뷰 결과입니다. gpt-4o 모델 사용'
-    expect(parseCopilotModel(response)).toBe('gpt-4o')
-  })
-
-  it('모델명이 없으면 기본값 반환', () => {
-    const response = '리뷰 결과입니다. 이슈 없음.'
-    expect(parseCopilotModel(response)).toBe('모델 자동 선택')
+describe('loadCopilotModel', () => {
+  it('모델명을 반환', () => {
+    const model = loadCopilotModel()
+    expect(typeof model).toBe('string')
+    expect(model.length).toBeGreaterThan(0)
   })
 })
 
@@ -235,9 +226,9 @@ describe('runConnectionTest', () => {
 
   it('두 AI 모두 성공 → ok: true, responseTime 포함', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
-      if (typeof cmd === 'string' && cmd.includes('gemini -p')) return 'Hello!'
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) return 'Hello!'
       if (typeof cmd === 'string' && cmd.includes('--version')) return '1.0.22'
-      if (typeof cmd === 'string' && cmd.includes('gh copilot -p')) return 'Hi there!'
+      if (typeof cmd === 'string' && cmd.includes('gh copilot -- --model')) return 'Hi there!'
       return ''
     })
 
@@ -256,9 +247,9 @@ describe('runConnectionTest', () => {
 
   it('Gemini 실패 → ok: false, error 포함', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
-      if (typeof cmd === 'string' && cmd.includes('gemini')) throw new Error('gemini: command not found')
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) throw new Error('gemini: command not found')
       if (typeof cmd === 'string' && cmd.includes('--version')) return '1.0.22'
-      if (typeof cmd === 'string' && cmd.includes('gh copilot -p')) return 'Hi!'
+      if (typeof cmd === 'string' && cmd.includes('gh copilot -- --model')) return 'Hi!'
       return ''
     })
 
@@ -270,7 +261,7 @@ describe('runConnectionTest', () => {
 
   it('Copilot 실패 → ok: false, error 포함', () => {
     mockedExecSync.mockImplementation((cmd: any) => {
-      if (typeof cmd === 'string' && cmd.includes('gemini -p')) return 'Hello!'
+      if (typeof cmd === 'string' && cmd.includes('gemini -o text')) return 'Hello!'
       if (typeof cmd === 'string' && cmd.includes('--version')) throw new Error('gh copilot: command not found')
       return ''
     })

@@ -1,219 +1,160 @@
-# 🏛️ Agora — 멀티 AI 코드 리뷰
+# 🏛️ Agora
 
-> 3개 AI에게 동시에 코드 리뷰를 받고, 누가 뭘 발견했는지 한눈에 비교하는 도구
+**3개 AI가 동시에 코드 리뷰. 누가 뭘 발견했는지, 의견이 갈리면 누가 맞는지, 한눈에.**
 
-## 이게 뭔가요?
+Claude + Gemini + Copilot에게 같은 diff를 던지고, MC(중재자)가 결과를 비교 분류합니다.
+Claude Code에서 `/agora-review` 한 줄이면 끝.
 
-MR(Merge Request)을 올리고 코드 리뷰를 받을 때, AI 하나만 쓰면 놓치는 게 있습니다.
-Claude는 잡는데 Gemini는 못 잡고, Copilot은 다른 관점에서 보고, 때로는 서로 반대 의견을 내기도 합니다.
+![Agora Review Report](docs/screenshots/01-overview.png)
 
-Agora는 이 문제를 해결합니다:
+## 왜 만들었나
 
-1. **3개 AI에게 동시에 리뷰 요청** (Claude, Gemini, GitHub Copilot)
-2. **결과를 자동으로 비교 분류** (합의 / 고유 발견 / 의견 충돌)
-3. **웹 리포트로 보기 좋게 출력** (다크/라이트 모드, 필터, 액션 아이템)
+AI 코드 리뷰를 쓰다 보면 이런 경험이 있습니다:
+- Claude는 잡는데 Gemini는 못 잡는 이슈
+- Copilot이 error라 했는데 실제로는 의도된 설계
+- 3개 AI가 전부 "이거 버그다"라고 했는데 실제로는 아닌 것 (합의 오탐)
+
+**AI 하나만 믿으면 놓치고, 전부 믿으면 시간 낭비.** Agora는 여러 AI의 리뷰를 자동으로 교차 검증합니다.
+
+## 동작 방식
 
 ```
-                    ┌─────────┐
-                    │  사용자  │
-                    │ /agora  │
-                    └────┬────┘
-                         │
-              ┌──────────┼──────────┐
-              ▼          ▼          ▼
-          🐶 Claude  🐻 Gemini  🐱 Copilot
-          (자체리뷰)   (CLI)      (CLI)
-              │          │          │
-              └──────────┼──────────┘
-                         │
-                    ┌────▼────┐
-                    │ 🏛️ MC   │
-                    │ (분류)   │
-                    └────┬────┘
-                         │
-                    ┌────▼────┐
-                    │ 웹 리포트 │
-                    └─────────┘
+           ┌─────────┐
+           │ /agora  │
+           └────┬────┘
+                │
+     ┌──────────┼──────────┐
+     ▼          ▼          ▼
+ 🐶 Claude  🐻 Gemini  🐱 Copilot
+     │          │          │
+     └──────────┼──────────┘
+                │
+           ┌────▼────┐
+           │ 🎙️ MC   │  ← 합의/고유/충돌 분류
+           │  재검증   │  ← 합의 오탐 방지
+           └────┬────┘
+                │
+           ┌────▼────┐
+           │ 웹 리포트 │  ← 브라우저에서 바로 확인
+           └─────────┘
 ```
+
+**5단계 파이프라인:**
+1. diff 가져오기 (GitLab MR URL 또는 로컬 git)
+2. 3개 AI에게 병렬로 리뷰 요청 (Gemini + Copilot은 CLI 병렬 실행)
+3. MC가 결과를 분류하고, 합의된 필수 이슈는 재검증
+4. 웹 리포트 생성 + 브라우저 자동 열기
+5. 수정할 항목 선택 → Claude가 자동 수정 + 커밋
+
+## 웹 리포트
+
+### AI 의견 충돌 → MC가 판정
+
+AI끼리 의견이 다르면, MC가 프로젝트 맥락을 보고 판정합니다.
+
+![AI Conflicts with MC Verdict](docs/screenshots/02-conflicts.png)
+
+### 액션 아이템 체크리스트
+
+리뷰 결과를 바로 할 일 목록으로. 체크하면 프로그레스 바가 갱신됩니다.
+
+![Action Items](docs/screenshots/03-actions.png)
+
+### 주요 기능
+
+- **합의/고유/충돌 분류** — 2개 이상 AI가 같은 이슈를 발견하면 합의, 1개만 발견하면 고유, 의견이 다르면 충돌
+- **MC 재검증** — "3개 AI가 전부 버그라 했는데 실제로는 정상"인 합의 오탐을 잡아냄
+- **코드 비교** — 현재 코드 vs 개선안을 before/after로 표시
+- **다크/라이트 모드** — 오른쪽 상단 토글
+- **필터** — 전체 / 꼭 고쳐야 함 / 고치면 좋음 / AI 합의만
+- **자동 수정** — 리뷰 후 수정할 항목을 복수 선택하면 Claude가 코드 수정 + 커밋
 
 ## 빠른 시작
 
 ### 1. 설치
 
 ```bash
+git clone https://github.com/your-username/agora.git
 cd agora
 yarn install
 ```
 
-### 2. 실행
-
-Claude Code에서:
-
-```
-/agora-review https://gitlab.nexon.com/qualitysolution/tovice/tovice-server/-/merge_requests/131
-```
-
-처음 실행하면 셋업 대화가 시작됩니다. 로컬 환경을 자동으로 스캔해서 기존 API 키를 찾아줍니다.
-
-### 3. 결과 확인
-
-브라우저에서 웹 리포트가 자동으로 열립니다:
-
-- 🔴 Error / 🟡 Warning / 🔵 Info 로 severity 분류
-- 파일별로 이슈를 묶어서 표시
-- 합의(3/3), 고유(1 AI), 충돌(의견 차이) 뱃지
-- 충돌 이슈에는 MC의 판정 포함
-- 체크박스로 할 일 관리
-
-## 리뷰 대상 지정 방법
+### 2. 명령어 등록
 
 ```bash
-# GitLab MR URL
-/agora-review https://gitlab.nexon.com/.../merge_requests/131
-
-# 로컬 git diff (자동)
-/agora-review
-
-# 특정 브랜치 비교
-/agora-review git diff develop..feature/my-branch
+mkdir -p ~/.claude/commands
+cp .claude/commands/*.md ~/.claude/commands/
 ```
+
+이제 **아무 프로젝트에서나** `/agora-review`를 쓸 수 있습니다.
+
+### 3. 실행
+
+```bash
+# Claude Code에서
+/agora-review
+```
+
+처음 실행하면 자동 셋업이 시작됩니다. Gemini CLI, Copilot CLI, GitLab 토큰을 안내에 따라 설정하면 됩니다.
+
+**최소 요구사항:** Gemini 또는 Copilot 중 1개 + Claude Code
 
 ## 참여 AI
 
-| AI | 아이콘 | 호출 방식 | 인증 |
-|----|--------|-----------|------|
-| Claude | 🐶 | Claude Code 자체 리뷰 (외부 호출 없음) | 불필요 |
-| Gemini | 🐻 | `gemini -p "$PROMPT" -o text` CLI | Google OAuth |
-| Copilot | 🐱 | `gh copilot -p "$PROMPT"` CLI | `gh auth login` |
-
-**Claude는 두 가지 역할을 합니다:**
-- **리뷰어**: diff를 직접 읽고 이슈를 발견
-- **MC (중재자)**: 3개 AI 결과를 비교하고, 합의/고유/충돌로 분류하고, 충돌 시 프로젝트 컨텍스트를 기반으로 판정
-
-## 셋업
-
-처음 `/agora-review`를 실행하면 자동으로 셋업이 시작됩니다.
-
-```
-━━━ Agora 초기 설정 ━━━━━━━━━━━━━━━━━━━━━━
-
-로컬 환경을 확인했습니다.
-
-🐶 Claude    — Claude Code 세션 사용 (설정 불필요)
-🐻 Gemini    — gemini CLI 인증 완료 → 그대로 사용할까요?
-🐱 Copilot   — 준비 완료
-📋 GitLab    — 토큰 발견 → 이 토큰을 사용할까요?
-```
-
-각 AI별로 선택지가 제공되며, 기존에 설정된 인증이 있으면 자동으로 감지합니다.
-
-Claude는 Claude Code 세션을 그대로 사용하므로 별도 인증이 불필요합니다.
-
-셋업 결과는 `.env.agora` 파일에 저장됩니다 (`.gitignore` 대상, `GEMINI_MODEL` + `GITLAB_TOKEN`).
-
-## 웹 리포트
-
-리뷰 결과는 브라우저에서 열리는 HTML 리포트로 제공됩니다.
-
-### 구성
-
-```
-┌─────────────────────────────────────────┐
-│ 🏛️ Agora Review          요약 이슈 액션 🌙│  ← sticky 헤더 + 네비 + 다크/라이트 토글
-├─────────────────────────────────────────┤
-│ 발견된 이슈  │  AI 합의   │  참여 AI      │  ← 대시보드
-│     10      │    3      │ 🐶🐻🐱       │
-├─────────────────────────────────────────┤
-│ 📋 이 MR은 뭘 바꾸나요?                   │  ← MR 요약 (비유 포함)
-│ 주방에서 여러 요리가...                    │
-├─────────────────────────────────────────┤
-│ 수정이 필요한 것들 (7)  [전체 펼치기]       │  ← 이슈 목록
-│ [전체] [Error] [Warning] [합의만]         │     필터 바
-│                                         │
-│ ▸ 🔴 :203 권한 체크 위조       합의 3/3    │  ← 접이식 카드
-│ ▸ 🟡 :295 N+1 쿼리            합의 3/3    │
-│ ▸ 🟡 :57  중복 실행 위험       🐱 Copilot  │
-├─────────────────────────────────────────┤
-│ 의견이 갈린 것들 (1)                       │  ← 충돌 + MC 판정
-│ ⚡ NODE_ENV 조건                          │
-│   🐻 Gemini: ...  🐱 Copilot: ...        │
-│   🏛️ MC 판정: 이슈 아님. TOVICE는...       │
-├─────────────────────────────────────────┤
-│ 할 일 목록              ━━━━━━━━ 0/6     │  ← 액션 아이템
-│ ☐ 🔴 validator.ts — 전용 권한 등록        │     체크박스 + 프로그레스 바
-│ ☐ 🟡 poller.ts — N+1 쿼리 수정           │
-└─────────────────────────────────────────┘
-```
-
-### 기능
-
-- **다크/라이트 모드** — 오른쪽 상단 🌙/☀️ 토글
-- **접이식 이슈 카드** — 클릭해서 펼치기/접기, "전체 펼치기" 버튼
-- **필터** — 전체 / Error만 / Warning만 / 합의만
-- **파일별 그룹핑** — 같은 파일의 이슈를 묶어서 표시
-- **MC 판정** — 의견 충돌 시 프로젝트 컨텍스트를 아는 MC가 판정
-- **액션 아이템** — 체크하면 프로그레스 바 실시간 갱신
-- **모바일 반응형** — 768px 이하 대응
+| AI | 역할 | 호출 방식 |
+|----|------|-----------|
+| 🐶 Claude | 리뷰어 + MC (중재자) | Claude Code 세션 자체 (외부 호출 없음) |
+| 🐻 Gemini | 리뷰어 | `gemini` CLI (Google OAuth) |
+| 🐱 Copilot | 리뷰어 | `gh copilot` CLI (GitHub 인증) |
 
 ## 프로젝트 구조
 
 ```
 agora/
 ├── .claude/commands/
-│   ├── agora-review.md          # Claude Code 커스텀 커맨드 (셋업 + 리뷰 플로우)
-│   └── agora-setup.md           # 설정 재설정 커맨드
+│   ├── agora-review.md              # 메인 커맨드 (5단계 리뷰 플로우)
+│   └── agora-setup.md               # 설정 재설정
 ├── scripts/
-│   ├── agora-review.ts          # Gemini/Copilot CLI 호출 오케스트레이터
-│   ├── agora-review.test.ts     # 테스트 (10개, vitest)
-│   └── report-template.html     # 웹 리포트 HTML 템플릿
-├── SETUP-GUIDE.md               # 설치 가이드
-├── .env.agora                   # 설정 파일 (gitignore, 셋업 시 자동 생성)
-├── .env.agora.example           # 설정 템플릿
-├── .gitignore
+│   ├── agora-review.ts              # Gemini/Copilot CLI 오케스트레이터
+│   ├── agora-review.test.ts         # 테스트 (16개)
+│   ├── env.ts                       # 환경변수 공통 로더
+│   ├── env.test.ts                  # env 테스트 (5개)
+│   ├── generate-report.ts           # JSON → HTML 리포트 변환
+│   ├── report-template.html         # 웹 리포트 템플릿
+│   ├── fetch-sibling-file.ts        # GitLab API: 형제 프로젝트 파일 조회
+│   └── find-related-sibling-mrs.ts  # GitLab API: 형제 프로젝트 MR 검색
+├── docs/screenshots/                # README용 스크린샷
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
 ```
 
-## 분류 기준
-
-### 같은 이슈 판정
-- 같은 파일 내 ±5줄 이내 + 동일 주제 → 같은 이슈
-- 그 외는 MC가 description 의미적 유사도로 판단
-
-### 카테고리
-| 카테고리 | 의미 | 리포트 표시 |
-|----------|------|------------|
-| 합의 | 2개 이상 AI가 같은 이슈 발견 | 👥 합의 3/3 (초록) |
-| 고유 | 1개 AI만 발견 | 👤 🐻 Gemini (파랑) |
-| 충돌 | AI 간 의견이 다름 | ⚡ + MC 판정 |
-
 ## 테스트
 
 ```bash
-yarn test        # 전체 테스트 실행
+yarn test        # 21개 테스트 실행
 yarn test:watch  # 워치 모드
 ```
 
-10개 테스트 커버리지:
-- Gemini CLI 호출 (정상/실패/타임아웃)
-- Copilot CLI 호출 (정상/미설치/실패)
-- 오케스트레이터 (전체 성공/부분 실패/전체 실패/대형 diff 경고)
+## 설정
 
-## 향후 계획
+`.env.agora` (셋업 시 자동 생성, gitignore 대상):
 
-### Phase 2: MC 토론 라운드
-- 충돌 이슈에 대해 AI 간 토론 진행
-- MC가 각 AI에게 "근거를 대라"고 요청하여 수렴
-- 사용자 개입 가능 (방향 지시, 건너뛰기)
+```
+GEMINI_MODEL=gemini-2.0-flash
+COPILOT_MODEL=claude-sonnet-4.6
+GITLAB_TOKEN=glpat-xxxxx
+GITLAB_URL=https://your-gitlab.com   # 선택. 기본값 사용 시 생략 가능
+```
 
-### 확장
-- 커스텀 AI 등록 (사용자가 원하는 AI 추가)
-- 리뷰 이력 관리
-- GitLab MR 코멘트 자동 등록
-- 리뷰 결과 마크다운 리포트 저장
+## 기술 스택
+
+- **TypeScript** (ESM) + **Vitest** (21개 테스트)
+- **Claude Code Custom Commands** (.claude/commands/)
+- **CLI 기반 AI 호출** — Gemini CLI + GitHub Copilot CLI (stdin으로 프롬프트 전달, shell injection 방지)
+- **HTML 리포트** — 단일 파일, 외부 의존성 없음 (CSS/JS 인라인)
 
 ## 왜 "Agora"인가?
 
-아고라(Ἀγορά)는 고대 그리스의 광장입니다. 시민들이 모여 토론하고 합의를 이끌어내던 장소.
-Agora에서는 AI들이 모여 코드에 대해 토론하고, MC가 합의를 이끌어냅니다.
+아고라(Agora)는 고대 그리스의 광장. 시민들이 모여 토론하고 합의를 이끌어내던 장소.
+Agora에서는 AI들이 모여 코드를 토론하고, MC가 합의를 이끌어냅니다.

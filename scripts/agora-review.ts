@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { execSync } from 'child_process'
-import { tmpdir, homedir } from 'os'
+import { homedir } from 'os'
 import { join, basename } from 'path'
+import { loadGeminiModel, loadCopilotModel } from './env'
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -40,12 +41,29 @@ interface AgoraTestOutput {
 const MAX_DIFF_LINES = 3000
 const CLI_TIMEOUT = 120000 // 2분
 
-const REVIEW_PROMPT = (diff: string) => `당신은 코드 리뷰어입니다. 아래 diff를 리뷰해주세요.
+const REVIEW_PROMPT = (diff: string) => `당신은 코드 리뷰어입니다. 아래 diff를 리뷰하고, 반드시 아래 형식으로만 응답하세요. 형식을 임의로 변경하지 마세요.
 
-1. 먼저 이 diff가 어떤 변경인지 비개발자도 이해할 수 있도록 간단하게 요약해주세요. 비유를 포함해주세요.
-2. 발견한 이슈를 severity(error/warning/info), 파일명, 줄번호와 함께 나열해주세요.
-3. 각 이슈에 대한 개선 제안도 함께 작성해주세요.
-4. 이슈가 없으면 "이슈 없음"이라고 작성하세요.
+**중요 제한사항**: 이 diff는 단일 프로젝트(서버/클라이언트/러너 중 하나)만 포함합니다. 호출처(클라이언트, 다른 서비스)의 실제 사용 패턴은 볼 수 없습니다.
+
+따라서:
+- "구버전 클라이언트가 undefined를 보낼 수 있다", "하위 호환 regression" 같은 판정은 **가설**로만 제시하세요.
+- 이런 가설에는 반드시 "[가설: 호출자 확인 필요]"를 붙여주세요.
+- API 스키마 변경, 기본값 변경, 인터페이스 비대칭 등은 의도적 설계일 수 있으므로 단정하지 마세요.
+
+## 요약
+{비개발자도 이해할 수 있는 변경 요약. 비유를 포함하여 2-3문장으로 작성.}
+
+## 이슈
+이슈가 없으면 아래 한 줄만 작성:
+이슈 없음
+
+이슈가 있으면 아래 형식을 이슈마다 반복:
+
+### [severity] 파일명:줄번호 — 이슈 제목
+**설명**: {이슈 설명}
+**개선안**: {개선 제안 코드 또는 설명}
+
+severity는 반드시 error, warning, info 중 하나를 사용하세요.
 
 모든 응답은 한국어로 작성하세요.
 
@@ -55,22 +73,7 @@ ${diff}
 
 // ─── Helpers ────────────────────────────────────────────
 
-export function loadGeminiModel(): string {
-  try {
-    const envPath = join(import.meta.dirname, '..', '.env.agora')
-    const content = readFileSync(envPath, 'utf-8')
-    const match = content.match(/^GEMINI_MODEL=(.+)$/m)
-    if (match) return match[1].trim()
-  } catch {}
-  return 'gemini-2.0-flash'
-}
-
-export function parseCopilotModel(response: string): string {
-  // 응답 텍스트에서 모델명 패턴 탐색 (예: claude-sonnet-4.6, gpt-4o, etc.)
-  const modelPattern = /\b(claude[-\w.]+|gpt[-\w.]+|o[1-9][-\w.]*)\b/i
-  const match = response.match(modelPattern)
-  return match ? match[1] : '모델 자동 선택'
-}
+export { loadGeminiModel, loadCopilotModel }
 
 function formatTimestamp(date: Date): string {
   const y = date.getFullYear()
@@ -88,25 +91,16 @@ export function callGemini(prompt: string): ReviewResult {
   const model = loadGeminiModel()
   const startTime = Date.now()
 
-  // 프롬프트를 임시 파일로 저장 (쉘 이스케이프 문제 방지)
-  const promptFile = join(tmpdir(), `agora-gemini-${Date.now()}.txt`)
-  writeFileSync(promptFile, prompt, 'utf-8')
-
   try {
-    const output = execSync(
-      `gemini -p "$(cat '${promptFile}')" -o text`,
-      {
-        encoding: 'utf-8',
-        timeout: CLI_TIMEOUT,
-        maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env },
-      },
+    const stdout = execSync(
+      'gemini -o text',
+      { input: prompt, encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024 },
     )
 
     return {
       ai: 'Gemini',
       icon: '🐻',
-      response: output.trim(),
+      response: stdout.trim(),
       model,
       durationMs: Date.now() - startTime,
     }
@@ -119,16 +113,14 @@ export function callGemini(prompt: string): ReviewResult {
       model,
       durationMs: Date.now() - startTime,
     }
-  } finally {
-    try { unlinkSync(promptFile) } catch {}
   }
 }
 
 export function callCopilot(prompt: string): ReviewResult {
+  const model = loadCopilotModel()
   const startTime = Date.now()
 
   try {
-    // gh copilot 사용 가능 확인
     execSync('gh copilot --version', { stdio: 'pipe' })
   } catch {
     return {
@@ -136,31 +128,22 @@ export function callCopilot(prompt: string): ReviewResult {
       icon: '🐱',
       response: '',
       error: 'GitHub Copilot CLI를 사용할 수 없습니다. `gh auth login` 후 `gh extension install github/gh-copilot`을 실행하세요.',
-      model: '모델 자동 선택',
+      model,
       durationMs: Date.now() - startTime,
     }
   }
 
-  const promptFile = join(tmpdir(), `agora-copilot-${Date.now()}.txt`)
-  writeFileSync(promptFile, prompt, 'utf-8')
-
   try {
-    const output = execSync(
-      `gh copilot -p "$(cat '${promptFile}')"`,
-      {
-        encoding: 'utf-8',
-        timeout: CLI_TIMEOUT,
-        maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env },
-      },
+    const stdout = execSync(
+      `gh copilot -- --model ${model} -s`,
+      { input: prompt, encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024 },
     )
 
-    const trimmed = output.trim()
     return {
       ai: 'Copilot',
       icon: '🐱',
-      response: trimmed,
-      model: parseCopilotModel(trimmed),
+      response: stdout.trim(),
+      model,
       durationMs: Date.now() - startTime,
     }
   } catch (e) {
@@ -169,11 +152,9 @@ export function callCopilot(prompt: string): ReviewResult {
       icon: '🐱',
       response: '',
       error: e instanceof Error ? e.message : String(e),
-      model: '모델 자동 선택',
+      model,
       durationMs: Date.now() - startTime,
     }
-  } finally {
-    try { unlinkSync(promptFile) } catch {}
   }
 }
 
@@ -190,7 +171,7 @@ export function callExternalAIs(diff: string): AgoraOutput {
 
   const prompt = REVIEW_PROMPT(diff)
 
-  // Gemini와 Copilot을 순차 호출 (CLI는 동기 실행)
+  // Gemini와 Copilot 순차 호출
   const geminiResult = callGemini(prompt)
   const copilotResult = callCopilot(prompt)
 
@@ -216,18 +197,14 @@ export function runConnectionTest(): AgoraTestOutput {
   const geminiModel = loadGeminiModel()
   const geminiStart = Date.now()
   {
-    const promptFile = join(tmpdir(), `agora-gemini-test-${Date.now()}.txt`)
-    writeFileSync(promptFile, 'Hello', 'utf-8')
     try {
       execSync(
-        `gemini -p "$(cat '${promptFile}')" -o text`,
-        { encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
+        'gemini -o text',
+        { input: 'Hello', encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
       )
       tests.push({ ai: 'Gemini', icon: '🐻', ok: true, model: geminiModel, responseTime: Date.now() - geminiStart })
     } catch (e) {
       tests.push({ ai: 'Gemini', icon: '🐻', ok: false, model: geminiModel, error: e instanceof Error ? e.message : String(e) })
-    } finally {
-      try { unlinkSync(promptFile) } catch {}
     }
   }
 
@@ -240,18 +217,15 @@ export function runConnectionTest(): AgoraTestOutput {
     return { tests }
   }
   {
-    const promptFile = join(tmpdir(), `agora-copilot-test-${Date.now()}.txt`)
-    writeFileSync(promptFile, 'Hello', 'utf-8')
     try {
-      const output = execSync(
-        `gh copilot -p "$(cat '${promptFile}')"`,
-        { encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
+      const copilotModel = loadCopilotModel()
+      execSync(
+        `gh copilot -- --model ${copilotModel} -s`,
+        { input: 'Hello', encoding: 'utf-8', timeout: CLI_TIMEOUT, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } },
       )
-      tests.push({ ai: 'Copilot', icon: '🐱', ok: true, model: parseCopilotModel(output.trim()), responseTime: Date.now() - copilotStart })
+      tests.push({ ai: 'Copilot', icon: '🐱', ok: true, model: copilotModel, responseTime: Date.now() - copilotStart })
     } catch (e) {
       tests.push({ ai: 'Copilot', icon: '🐱', ok: false, error: e instanceof Error ? e.message : String(e) })
-    } finally {
-      try { unlinkSync(promptFile) } catch {}
     }
   }
 
@@ -280,6 +254,26 @@ function main() {
   if (process.argv.includes('--test')) {
     const testOutput = runConnectionTest()
     console.log(JSON.stringify(testOutput))
+    return
+  }
+
+  // --gemini-only: Gemini만 호출
+  if (process.argv.includes('--gemini-only')) {
+    const diffPath = process.argv.find(a => !a.startsWith('-') && a !== process.argv[0] && a !== process.argv[1])
+    if (!diffPath) { console.error('diff 파일 경로 필요'); process.exit(1) }
+    const diff = readFileSync(diffPath, 'utf-8')
+    const result = callGemini(REVIEW_PROMPT(diff))
+    console.log(JSON.stringify(result))
+    return
+  }
+
+  // --copilot-only: Copilot만 호출
+  if (process.argv.includes('--copilot-only')) {
+    const diffPath = process.argv.find(a => !a.startsWith('-') && a !== process.argv[0] && a !== process.argv[1])
+    if (!diffPath) { console.error('diff 파일 경로 필요'); process.exit(1) }
+    const diff = readFileSync(diffPath, 'utf-8')
+    const result = callCopilot(REVIEW_PROMPT(diff))
+    console.log(JSON.stringify(result))
     return
   }
 
