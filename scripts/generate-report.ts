@@ -76,7 +76,7 @@ interface Issue {
 
 // ── Helpers ──
 
-function esc(s: string): string {
+export function esc(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -84,25 +84,25 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function sevClass(s: string): string {
+export function sevClass(s: string): string {
   if (s === 'error') return 'e'
   if (s === 'warning') return 'w'
   return 'i'
 }
 
-function sevLabel(s: string): string {
+export function sevLabel(s: string): string {
   if (s === 'error') return '필수'
   if (s === 'warning') return '권장'
   return '참고'
 }
 
-function sevEmoji(s: string): string {
+export function sevEmoji(s: string): string {
   if (s === 'error') return '🔴'
   if (s === 'warning') return '🟡'
   return '🔵'
 }
 
-function aiChipClass(key: string): string {
+export function aiChipClass(key: string): string {
   if (key === 'claude') return 'c'
   if (key === 'gemini') return 'g'
   if (key === 'copilot') return 'p'
@@ -110,7 +110,7 @@ function aiChipClass(key: string): string {
   return ''
 }
 
-function opNameClass(key: string): string {
+export function opNameClass(key: string): string {
   if (key === 'claude') return 'c'
   if (key === 'gemini') return 'g'
   if (key === 'copilot') return 'p'
@@ -508,4 +508,8 @@ function main(): void {
   }
 }
 
-main()
+// 직접 실행 시에만 main 호출 (테스트에서는 import만)
+const isDirectRun = process.argv[1]?.endsWith('generate-report.ts')
+if (isDirectRun) {
+  main()
+}
