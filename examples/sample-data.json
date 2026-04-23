@@ -1,0 +1,130 @@
+{
+  "title": "샘플 코드 리뷰 — user-api 기능 추가 MR",
+  "summary": {
+    "text": "사용자 API에 이메일 중복 검증 엔드포인트를 추가하고, 입력값 유효성 검사 유틸을 분리했습니다. 기존 회원가입 플로우에서 클라이언트가 실시간으로 이메일 중복 여부를 확인할 수 있게 됩니다.",
+    "fileGroups": [
+      { "dir": "src/api/", "tags": ["신규 엔드포인트", "인증"] },
+      { "dir": "src/utils/", "tags": ["유틸 분리", "유효성 검사"] }
+    ]
+  },
+  "stats": {
+    "total": 5,
+    "error": 2,
+    "warning": 2,
+    "info": 1,
+    "consensus": 2,
+    "solo": 2,
+    "conflict": 1,
+    "fileCount": 2,
+    "diffLines": 87
+  },
+  "participants": [
+    { "key": "claude", "icon": "🐶", "name": "Claude", "model": "claude-sonnet-4-6" },
+    { "key": "gemini", "icon": "🐻", "name": "Gemini", "model": "gemini-2.0-flash" },
+    { "key": "copilot", "icon": "🐱", "name": "Copilot", "model": "claude-sonnet-4.6" },
+    { "key": "mc", "icon": "🎙️", "name": "MC", "model": "claude-sonnet-4-6" }
+  ],
+  "duration": {
+    "total": "38s",
+    "perAi": {
+      "Gemini": "14s",
+      "Copilot": "12s",
+      "MC": "12s"
+    }
+  },
+  "fileGroups": [
+    {
+      "file": "src/api/user.ts",
+      "issues": [
+        {
+          "severity": "error",
+          "loc": "L42",
+          "name": "SQL Injection 취약점",
+          "consensus": true,
+          "consensusLabel": "👥 합의 (3/3)",
+          "desc": "사용자 입력값을 쿼리 문자열에 직접 삽입하고 있습니다. 공격자가 이메일 파라미터에 SQL 구문을 주입할 수 있습니다.",
+          "fix": "ORM의 파라미터 바인딩을 사용하거나, 최소한 escape 함수를 적용하세요.",
+          "codeSnippet": "-  const row = await db.query(`SELECT * FROM users WHERE email = '${email}'`)\n+  const row = await db.query('SELECT * FROM users WHERE email = ?', [email])",
+          "comparison": {
+            "before": "const row = await db.query(`SELECT * FROM users WHERE email = '${email}'`)",
+            "after": "const row = await db.query('SELECT * FROM users WHERE email = ?', [email])"
+          },
+          "needsVerification": false,
+          "mcVerdict": {
+            "result": "유지",
+            "reason": "3개 AI 모두 동일한 라인을 지적했으며, 실제로 파라미터 바인딩 없이 문자열 보간이 사용되고 있음을 코드에서 확인했습니다.",
+            "evidence": "src/api/user.ts L42: 템플릿 리터럴로 email 직접 삽입 확인"
+          }
+        },
+        {
+          "severity": "warning",
+          "loc": "L68",
+          "name": "응답에 민감 필드 노출",
+          "consensus": true,
+          "consensusLabel": "👥 합의 (2/3)",
+          "desc": "이메일 중복 확인 응답에 사용자의 password_hash와 created_at 필드가 포함되어 있습니다.",
+          "fix": "응답 객체를 명시적으로 선택하거나, DTO 레이어를 통해 필요한 필드만 반환하세요.",
+          "mcVerdict": {
+            "result": "유지",
+            "reason": "Claude와 Gemini가 동일 라인을 지적. 실제 응답 객체에 password_hash 포함이 확인됩니다.",
+            "evidence": "L68: res.json(user) — user 객체 전체 반환"
+          }
+        }
+      ]
+    },
+    {
+      "file": "src/utils/validator.ts",
+      "issues": [
+        {
+          "severity": "error",
+          "loc": "L15",
+          "name": "정규식 ReDoS 위험",
+          "consensus": false,
+          "consensusLabel": "🔵 고유 (Gemini)",
+          "desc": "이메일 유효성 검사에 사용된 정규식이 지수 시간 백트래킹을 유발할 수 있습니다. 악의적인 입력으로 서버를 블로킹시킬 수 있습니다.",
+          "fix": "검증된 이메일 정규식 라이브러리(validator.js 등)를 사용하거나, 단순화된 정규식으로 교체하세요.",
+          "codeSnippet": "-  const emailRegex = /^([a-zA-Z0-9]+([._-][a-zA-Z0-9]+)*)+@(([a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*))+\\.[a-zA-Z]{2,}$/\n+  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/"
+        },
+        {
+          "severity": "warning",
+          "loc": "L30",
+          "name": "에러 메시지 과다 노출",
+          "consensus": false,
+          "consensusLabel": "🐱 고유 (Copilot)",
+          "desc": "유효성 검사 실패 시 반환하는 에러 메시지가 내부 필드명을 그대로 노출합니다. 공격자가 DB 스키마를 추론하는 데 활용될 수 있습니다.",
+          "fix": "사용자에게 반환하는 에러 메시지는 일반적인 표현을 사용하고, 상세 내용은 서버 로그에만 기록하세요."
+        },
+        {
+          "severity": "info",
+          "loc": "L8",
+          "name": "타입 단언(as) 사용",
+          "consensus": false,
+          "consensusLabel": "🐶 고유 (Claude)",
+          "desc": "req.body를 any로 단언하고 있습니다. 타입 안전성이 낮아집니다.",
+          "fix": "Zod 또는 io-ts 같은 런타임 유효성 검사 라이브러리로 req.body 타입을 명시적으로 파싱하면 더 안전합니다."
+        }
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "title": "이메일 중복 확인 로직의 대소문자 처리",
+      "opinions": [
+        { "key": "gemini", "icon": "🐻", "name": "Gemini", "text": "이메일 비교 시 대소문자를 무시해야 합니다. RFC 5321에 따르면 로컬 파트는 대소문자를 구분할 수 있지만, 실제 대부분의 서비스는 대소문자 무관하게 처리합니다." },
+        { "key": "copilot", "icon": "🐱", "name": "Copilot", "text": "현재 구현대로 대소문자를 구분하는 것이 표준에 맞습니다. 변경 시 기존 사용자 데이터와의 정합성 문제가 생길 수 있습니다." }
+      ],
+      "verdict": "서비스 요구사항에 따라 다르나, 사용자 경험 관점에서 대소문자 무관 처리(toLowerCase 적용)가 일반적으로 권장됩니다. 단, DB 인덱스와 기존 데이터 마이그레이션 계획이 필요합니다."
+    }
+  ],
+  "infos": [
+    { "file": "src/utils/validator.ts", "text": "validateEmail 함수를 별도 모듈로 분리한 것은 좋은 설계입니다. 향후 재사용성이 높아집니다.", "badge": "🐶 Claude" }
+  ],
+  "actions": [
+    { "severity": "error", "file": "src/api/user.ts", "text": "L42 — SQL Injection: 쿼리 파라미터 바인딩으로 교체" },
+    { "severity": "error", "file": "src/utils/validator.ts", "text": "L15 — ReDoS: 정규식을 단순화하거나 validator.js 사용" },
+    { "severity": "warning", "file": "src/api/user.ts", "text": "L68 — 응답 DTO 적용으로 민감 필드 제외" },
+    { "severity": "warning", "file": "src/utils/validator.ts", "text": "L30 — 에러 메시지를 일반적인 표현으로 교체" }
+  ],
+  "date": "2026-04-23 10:30",
+  "generatedAt": "2026-04-23T10:30:00.000Z"
+}

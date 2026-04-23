@@ -701,7 +701,7 @@ MC 재검증 시 이 스크립트를 호출하여 cross-project 전제를 검증
       파일: ~/.agora/reviews/{파일명}
    ```
 
-## 5단계: 수정 항목 선택 및 자동 수정
+## 5단계: 수정 항목 선택 및 자동 수정 (개발 중)
 
 웹 리포트를 연 후, AskUserQuestion(multiSelect: true)으로 수정할 항목을 선택하게 합니다.
 

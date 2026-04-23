@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agora Review — 샘플 코드 리뷰 — user-api 기능 추가 MR</title>
+<style>
+  :root, [data-theme="dark"] {
+    --bg: #0a0e14;
+    --surface: #12161f;
+    --surface2: #1a1f2e;
+    --surface3: #222838;
+    --border: #2a3040;
+    --border-hover: #3a4560;
+    --text: #e8edf5;
+    --text-muted: #7a8394;
+    --accent: #4b8ade;
+    --accent-dim: rgba(108,159,255,0.12);
+    --error: #ff6b6b;
+    --error-dim: rgba(255,107,107,0.12);
+    --warning: #ffc857;
+    --warning-dim: rgba(255,200,87,0.12);
+    --info: #6c9fff;
+    --info-dim: rgba(108,159,255,0.12);
+    --success: #4ecdc4;
+    --success-dim: rgba(78,205,196,0.12);
+    --claude: #e8a87c;
+    --gemini: #95d475;
+    --copilot: #7cc4fa;
+    --glass: rgba(18,22,31,0.7);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  [data-theme="light"] {
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --surface2: #f8f9fa;
+    --surface3: #eef0f3;
+    --border: #d1d5db;
+    --border-hover: #9ca3af;
+    --text: #111827;
+    --text-muted: #4b5563;
+    --accent: #2563eb;
+    --accent-dim: rgba(37,99,235,0.08);
+    --error: #dc2626;
+    --error-dim: rgba(220,38,38,0.08);
+    --warning: #b45309;
+    --warning-dim: rgba(180,83,9,0.08);
+    --info: #2563eb;
+    --info-dim: rgba(37,99,235,0.08);
+    --success: #059669;
+    --success-dim: rgba(5,150,105,0.08);
+    --claude: #9a5a2e;
+    --gemini: #2d7a0e;
+    --copilot: #1d4ed8;
+    --glass: rgba(255,255,255,0.85);
+  }
+
+  /* Light mode: add subtle shadow to cards instead of relying on border alone */
+  [data-theme="light"] .metric-card,
+  [data-theme="light"] .summary-card,
+  [data-theme="light"] .issue,
+  [data-theme="light"] .conflict-card,
+  [data-theme="light"] .actions-card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  [data-theme="light"] .issue-code pre {
+    background: #f0f1f4;
+    border-color: #d1d5db;
+  }
+
+  [data-theme="light"] .theme-toggle {
+    background: var(--border);
+  }
+
+  [data-theme="light"] .theme-toggle .knob {
+    background: #ffffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header .logo { font-size: 22px; }
+  .header .subtitle { font-size: 13px; color: var(--text-muted); }
+
+  .nav-pills {
+    display: flex;
+    gap: 4px;
+  }
+
+  .nav-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    text-decoration: none;
+  }
+
+  .nav-pill:hover { background: var(--surface2); color: var(--text); }
+  .nav-pill.active { background: var(--accent-dim); color: var(--accent); }
+
+  /* ── Theme Toggle ── */
+  .theme-toggle {
+    width: 44px; height: 24px; border-radius: 12px;
+    background: var(--surface3); border: 1px solid var(--border);
+    cursor: pointer; position: relative; flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .theme-toggle .knob {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--text); position: absolute; top: 2px; left: 2px;
+    transition: transform 0.3s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+  }
+  [data-theme="light"] .theme-toggle .knob { transform: translateX(20px); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  /* ── Container ── */
+  .container { max-width: 920px; margin: 0 auto; padding: 28px 32px 80px; }
+
+  /* ── Dashboard ── */
+  .dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+    align-items: stretch;
+    animation: fadeUp 0.4s ease;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .metric-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+  .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 8px; }
+  .metric-value { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  .metric-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  .severity-inline { display: flex; gap: 12px; align-items: baseline; }
+  .sev-item { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; }
+  .sev-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .sev-dot.e { background: var(--error); }
+  .sev-dot.w { background: var(--warning); }
+  .sev-dot.i { background: var(--info); }
+
+  .ai-chips { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+  .ai-chip {
+    font-size: 11px; padding: 2px 8px; border-radius: 12px;
+    border: 1px solid; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
+  }
+  .ai-chip.c { border-color: rgba(232,168,124,0.4); color: var(--claude); }
+  .ai-chip.g { border-color: rgba(149,212,117,0.4); color: var(--gemini); }
+  .ai-chip.p { border-color: rgba(124,196,250,0.4); color: var(--copilot); }
+  .ai-chip.mc { border-color: rgba(168,85,247,0.4); color: #a855f7; }
+  .model-name { font-size: 9px; opacity: 0.6; margin-left: 1px; }
+
+  /* ── MR Summary ── */
+  .summary-card {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.5s ease;
+  }
+
+  .summary-card h2 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+  .summary-card p { font-size: 14px; color: var(--text-muted); line-height: 1.8; }
+  .summary-card strong { color: var(--text); }
+
+  .file-tags { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .ftag {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px; padding: 3px 8px; border-radius: 4px;
+    background: var(--surface3); color: var(--accent); letter-spacing: -0.2px;
+  }
+
+  /* ── Section ── */
+  .section { margin-bottom: 32px; }
+
+  .section-title {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-muted);
+    margin-bottom: 14px; padding-left: 2px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .section-title .count {
+    font-size: 11px; padding: 1px 8px; border-radius: 10px;
+    background: var(--surface2); color: var(--text-muted);
+  }
+
+  /* ── File Group ── */
+  .fgroup { margin-bottom: 16px; }
+
+  .fgroup-name {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px; color: var(--accent); padding: 4px 0 8px;
+    font-weight: 500; display: flex; align-items: center; gap: 6px;
+  }
+
+  .fgroup-name::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 2px;
+    background: var(--accent); opacity: 0.5;
+  }
+
+  /* ── Issue ── */
+  .issue {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    overflow: hidden;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+  }
+
+  .issue:hover { border-color: var(--border-hover); }
+  .issue.e { border-left-color: var(--error); }
+  .issue.w { border-left-color: var(--warning); }
+  .issue.i { border-left-color: var(--info); }
+
+  .issue-top {
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+  }
+
+  .issue-top:hover { background: var(--surface2); }
+
+  .issue-chevron {
+    font-size: 10px; color: var(--text-muted);
+    transition: transform 0.2s;
+    flex-shrink: 0; width: 16px; text-align: center;
+  }
+
+  .issue.open .issue-chevron { transform: rotate(90deg); }
+
+  .sev-tag {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 3px; flex-shrink: 0; letter-spacing: 0.3px;
+  }
+  .sev-tag.e { background: var(--error-dim); color: var(--error); }
+  .sev-tag.w { background: var(--warning-dim); color: var(--warning); }
+  .sev-tag.i { background: var(--info-dim); color: var(--info); }
+
+  .issue-loc {
+    font-family: 'SF Mono', monospace; font-size: 11px;
+    color: var(--text-muted); flex-shrink: 0;
+  }
+
+  .issue-name { font-size: 13px; font-weight: 600; flex: 1; }
+
+  .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px;
+    flex-shrink: 0; white-space: nowrap;
+  }
+  .badge.consensus { background: var(--success-dim); color: var(--success); }
+  .badge.solo { background: var(--accent-dim); color: var(--accent); }
+  .badge.needs-verify { background: rgba(255,200,87,0.15); color: #b45309; }
+
+  .issue-body {
+    display: none;
+    padding: 0 16px 14px 42px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .issue.open .issue-body { display: block; }
+
+  .issue-desc {
+    font-size: 13px; color: var(--text-muted); line-height: 1.7;
+    margin-bottom: 10px;
+  }
+
+  .issue-desc code {
+    font-family: 'SF Mono', monospace; font-size: 12px;
+    background: var(--surface3); padding: 1px 5px; border-radius: 3px;
+    color: var(--accent);
+  }
+
+  .issue-fix {
+    font-size: 13px; padding: 10px 14px; border-radius: 6px;
+    background: var(--success-dim); border: 1px solid rgba(78,205,196,0.15);
+    line-height: 1.6;
+  }
+
+  .issue-fix::before { content: '💡 '; }
+
+  /* ── Copy Prompt Button ── */
+  .copy-lg {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 10px; padding: 8px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 500; width: 100%;
+    background: var(--accent-dim); color: var(--accent);
+    border: 1px solid rgba(75,138,222,0.2);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .copy-lg:hover { background: rgba(75,138,222,0.2); border-color: var(--accent); }
+  .copy-lg.copied { background: var(--success-dim); color: var(--success); border-color: rgba(78,205,196,0.3); }
+
+  .issue-code { margin-top: 10px; }
+  .code-header { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .issue-code pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; overflow-x: auto; font-size: 12px; line-height: 1.5; }
+  .issue-code code { font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text); }
+  .issue-code pre .diff-add { background: rgba(78,205,196,0.1); display: block; }
+  .issue-code pre .diff-del { background: rgba(255,107,107,0.1); display: block; }
+
+  /* ── Before/After Code Comparison ── */
+  .code-comparison { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .code-before, .code-after { border-radius: 6px; padding: 10px 14px; font-size: 12px; line-height: 1.5; overflow-x: auto; }
+  .code-before { background: rgba(255,107,107,0.06); border: 1px solid rgba(255,107,107,0.15); }
+  .code-after { background: rgba(78,205,196,0.06); border: 1px solid rgba(78,205,196,0.15); }
+  .code-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600; }
+  .code-before .code-label { color: var(--error); }
+  .code-after .code-label { color: var(--success); }
+  .code-comparison pre { margin: 0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; white-space: pre-wrap; }
+  .code-comparison code { color: var(--text); }
+
+  /* ── Conflict ── */
+  .conflict-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--warning);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .conflict-top {
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .conflict-top .icon { font-size: 16px; }
+  .conflict-title { font-size: 13px; font-weight: 600; }
+
+  .conflict-body { padding: 0 16px 16px; }
+
+  .opinions { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+
+  .op {
+    padding: 10px 14px; border-radius: 6px; font-size: 13px;
+    background: var(--surface2); line-height: 1.6;
+  }
+
+  .op-name { font-weight: 600; margin-right: 4px; }
+  .op-name.c { color: var(--claude); }
+  .op-name.g { color: var(--gemini); }
+  .op-name.p { color: var(--copilot); }
+
+  .verdict {
+    padding: 14px 16px; border-radius: 8px; font-size: 13px;
+    background: linear-gradient(135deg, rgba(168,85,247,0.06) 0%, rgba(168,85,247,0.02) 100%);
+    border: 1px solid rgba(168,85,247,0.12);
+    line-height: 1.7;
+  }
+
+  .verdict-label {
+    font-size: 12px; font-weight: 700; color: #a855f7;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+  }
+
+  /* ── Info ── */
+  .info-item {
+    padding: 8px 0; font-size: 13px; color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .info-item:last-child { border-bottom: none; }
+  .info-item code {
+    font-family: 'SF Mono', monospace; font-size: 11px;
+    background: var(--surface2); padding: 1px 5px; border-radius: 3px; color: var(--accent);
+  }
+
+  /* ── Actions ── */
+  .actions-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .actions-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .actions-title { font-size: 13px; font-weight: 600; }
+
+  .progress-bar {
+    width: 120px; height: 4px; border-radius: 2px;
+    background: var(--surface3); overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--success);
+    transition: width 0.3s ease;
+  }
+
+  .progress-text { font-size: 11px; color: var(--text-muted); margin-left: 8px; }
+
+  .act {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background 0.15s;
+  }
+  .act:last-child { border-bottom: none; }
+  .act:hover { background: var(--surface2); }
+
+  .act input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: var(--success);
+    cursor: pointer; flex-shrink: 0;
+  }
+
+  .act.done .act-text { text-decoration: line-through; color: var(--text-muted); }
+  .act-sev { flex-shrink: 0; font-size: 14px; }
+  .act-text { font-size: 13px; }
+  .act-text strong { font-weight: 600; }
+
+  .file-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  /* ── Filter Bar ── */
+  .filter-bar {
+    display: flex; gap: 6px; margin-bottom: 14px;
+  }
+
+  .filter-btn {
+    padding: 5px 12px; border-radius: 14px; font-size: 12px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+
+  .filter-btn:hover { border-color: var(--border-hover); color: var(--text); }
+  .filter-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center; color: var(--text-muted); font-size: 11px;
+    margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border);
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .anim { animation: fadeUp 0.4s ease both; }
+  .anim-1 { animation-delay: 0.05s; }
+  .anim-2 { animation-delay: 0.1s; }
+  .anim-3 { animation-delay: 0.15s; }
+  .anim-4 { animation-delay: 0.2s; }
+  .anim-5 { animation-delay: 0.25s; }
+  .anim-6 { animation-delay: 0.3s; }
+
+  /* ── Scroll offset for sticky header ── */
+  [id] { scroll-margin-top: 80px; }
+
+  /* ── Expand/Collapse toggle ── */
+  .toggle-all {
+    font-size: 12px; color: var(--text-muted); cursor: pointer;
+    background: none; border: 1px solid var(--border); padding: 4px 10px;
+    border-radius: 12px; transition: all 0.15s;
+  }
+  .toggle-all:hover { border-color: var(--border-hover); color: var(--text); }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .header { padding: 12px 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .nav-pills { width: 100%; overflow-x: auto; }
+    .container { padding: 16px 16px 60px; }
+    .dashboard { grid-template-columns: 1fr; }
+    .metric-card { padding: 14px 16px; }
+    .metric-value { font-size: 22px; }
+    .summary-card { padding: 18px 20px; }
+    .issue-top { padding: 10px 12px; flex-wrap: wrap; }
+    .issue-name { min-width: 0; }
+    .filter-bar { overflow-x: auto; flex-wrap: nowrap; }
+    .ai-chips { flex-wrap: wrap; }
+    .code-comparison { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="logo">🏛️</span>
+    <div>
+      <h1>Agora Review</h1>
+      <div class="subtitle">샘플 코드 리뷰 — user-api 기능 추가 MR</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <nav class="nav-pills">
+      <a class="nav-pill active" href="#summary">요약</a>
+      <a class="nav-pill" href="#issues">이슈</a>
+      <a class="nav-pill" href="#conflicts">충돌</a>
+      <a class="nav-pill" href="#actions">액션</a>
+    </nav>
+    <div class="theme-toggle" onclick="toggleTheme()" title="다크/라이트 모드 전환">
+      <div class="knob" id="themeKnob">☀️</div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="dashboard anim">
+    <div class="metric-card">
+      <div class="metric-label">발견된 이슈</div>
+      <div class="metric-value">5</div>
+      <div class="severity-inline metric-sub">
+        <span class="sev-item"><span class="sev-dot e"></span>2 필수</span>
+        <span class="sev-item"><span class="sev-dot w"></span>2 권장</span>
+        <span class="sev-item"><span class="sev-dot i"></span>1 참고</span>
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">AI 합의</div>
+      <div class="metric-value" style="color: var(--success)">2</div>
+      <div class="metric-sub">고유 2건 · 충돌 1건</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">참여 AI</div>
+      <div class="ai-chips">
+        <span class="ai-chip c">🐶 Claude <span class="model-name">claude-sonnet-4-6</span></span>
+        <span class="ai-chip g">🐻 Gemini <span class="model-name">gemini-2.0-flash</span></span>
+        <span class="ai-chip p">🐱 Copilot <span class="model-name">claude-sonnet-4.6</span></span>
+        <span style="color:var(--text-muted); font-size:10px; margin:0 2px;">+</span><span class="ai-chip mc" title="MC(중재자): 3개 AI의 리뷰를 비교 분류하고, 의견 충돌 시 편향 없이 균형 잡힌 판정을 내립니다">🎙️ MC <span class="model-name">claude-sonnet-4-6</span></span>
+      </div>
+      <div class="metric-sub">2 files · 87 lines · 소요 38s</div>
+    </div>
+  </div>
+
+  
+
+  <div class="summary-card anim anim-1" id="summary">
+    <h2>📋 이 MR은 뭘 바꾸나요?</h2>
+    <p>사용자 API에 이메일 중복 검증 엔드포인트를 추가하고, 입력값 유효성 검사 유틸을 분리했습니다. 기존 회원가입 플로우에서 클라이언트가 실시간으로 이메일 중복 여부를 확인할 수 있게 됩니다.</p>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:14px; margin-bottom:6px;">변경된 파일:</div>
+    <div style="font-size:12px; line-height:1.8; color:var(--text-muted);">
+      <div>📁 <span style="color:var(--accent); font-family:'SF Mono',monospace; font-size:11px;">src/api/</span> <span class="ftag">신규 엔드포인트</span> <span class="ftag">인증</span></div>
+      <div>📁 <span style="color:var(--accent); font-family:'SF Mono',monospace; font-size:11px;">src/utils/</span> <span class="ftag">유틸 분리</span> <span class="ftag">유효성 검사</span></div>
+    </div>
+  </div>
+
+  <div class="section anim anim-2" id="issues">
+    <div class="section-title">
+      수정이 필요한 것들 <span class="count">4</span>
+      <button class="toggle-all" onclick="toggleAll()">전체 펼치기</button>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">전체</button>
+      <button class="filter-btn" data-filter="e">🔴 꼭 고쳐야 함</button>
+      <button class="filter-btn" data-filter="w">🟡 고치면 좋음</button>
+      <button class="filter-btn" data-filter="consensus">👥 AI 합의만</button>
+    </div>
+
+    <div class="fgroup">
+      <div class="fgroup-name">src/api/user.ts</div>
+      <div class="issue e" data-sev="e" data-consensus="true">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag e">필수</span>
+          <span class="issue-loc">L42</span>
+          <span class="issue-name">SQL Injection 취약점</span>
+          <span class="badge consensus">👥 합의 (3/3)</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">사용자 입력값을 쿼리 문자열에 직접 삽입하고 있습니다. 공격자가 이메일 파라미터에 SQL 구문을 주입할 수 있습니다.</div>
+          <div class="issue-fix">ORM의 파라미터 바인딩을 사용하거나, 최소한 escape 함수를 적용하세요.</div>
+          <div style="margin-top:10px; padding:10px 14px; border-radius:6px; background:rgba(168,85,247,0.06); border:1px solid rgba(168,85,247,0.12); font-size:13px; line-height:1.7;">
+            <div style="font-size:12px; font-weight:700; color:#a855f7; margin-bottom:4px;">🎙️ MC 재검증: ✅ 유지</div>
+            <div style="color:var(--text-muted);">3개 AI 모두 동일한 라인을 지적했으며, 실제로 파라미터 바인딩 없이 문자열 보간이 사용되고 있음을 코드에서 확인했습니다.</div>
+            <div style="margin-top:4px; font-family:'SF Mono',monospace; font-size:11px; color:var(--accent);">근거: src/api/user.ts L42: 템플릿 리터럴로 email 직접 삽입 확인</div>
+          </div>
+          <div class="issue-code">
+            <div class="code-header">관련 코드</div>
+            <pre><code><span class="diff-del">-  const row = await db.query(`SELECT * FROM users WHERE email = '${email}'`)</span>
+<span class="diff-add">+  const row = await db.query('SELECT * FROM users WHERE email = ?', [email])</span></code></pre>
+          </div>
+          <div class="code-comparison">
+            <div class="code-before">
+              <div class="code-label">현재 코드</div>
+              <pre><code>const row = await db.query(`SELECT * FROM users WHERE email = '${email}'`)</code></pre>
+            </div>
+            <div class="code-after">
+              <div class="code-label">💡 개선안</div>
+              <pre><code>const row = await db.query('SELECT * FROM users WHERE email = ?', [email])</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="issue w" data-sev="w" data-consensus="true">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag w">권장</span>
+          <span class="issue-loc">L68</span>
+          <span class="issue-name">응답에 민감 필드 노출</span>
+          <span class="badge consensus">👥 합의 (2/3)</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">이메일 중복 확인 응답에 사용자의 password_hash와 created_at 필드가 포함되어 있습니다.</div>
+          <div class="issue-fix">응답 객체를 명시적으로 선택하거나, DTO 레이어를 통해 필요한 필드만 반환하세요.</div>
+          <div style="margin-top:10px; padding:10px 14px; border-radius:6px; background:rgba(168,85,247,0.06); border:1px solid rgba(168,85,247,0.12); font-size:13px; line-height:1.7;">
+            <div style="font-size:12px; font-weight:700; color:#a855f7; margin-bottom:4px;">🎙️ MC 재검증: ✅ 유지</div>
+            <div style="color:var(--text-muted);">Claude와 Gemini가 동일 라인을 지적. 실제 응답 객체에 password_hash 포함이 확인됩니다.</div>
+            <div style="margin-top:4px; font-family:'SF Mono',monospace; font-size:11px; color:var(--accent);">근거: L68: res.json(user) — user 객체 전체 반환</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fgroup">
+      <div class="fgroup-name">src/utils/validator.ts</div>
+      <div class="issue e" data-sev="e" data-consensus="false">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag e">필수</span>
+          <span class="issue-loc">L15</span>
+          <span class="issue-name">정규식 ReDoS 위험</span>
+          <span class="badge solo">🔵 고유 (Gemini)</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">이메일 유효성 검사에 사용된 정규식이 지수 시간 백트래킹을 유발할 수 있습니다. 악의적인 입력으로 서버를 블로킹시킬 수 있습니다.</div>
+          <div class="issue-fix">검증된 이메일 정규식 라이브러리(validator.js 등)를 사용하거나, 단순화된 정규식으로 교체하세요.</div>
+          <div class="issue-code">
+            <div class="code-header">관련 코드</div>
+            <pre><code><span class="diff-del">-  const emailRegex = /^([a-zA-Z0-9]+([._-][a-zA-Z0-9]+)*)+@(([a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*))+\.[a-zA-Z]{2,}$/</span>
+<span class="diff-add">+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/</span></code></pre>
+          </div>
+        </div>
+      </div>
+      <div class="issue w" data-sev="w" data-consensus="false">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag w">권장</span>
+          <span class="issue-loc">L30</span>
+          <span class="issue-name">에러 메시지 과다 노출</span>
+          <span class="badge solo">🐱 고유 (Copilot)</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">유효성 검사 실패 시 반환하는 에러 메시지가 내부 필드명을 그대로 노출합니다. 공격자가 DB 스키마를 추론하는 데 활용될 수 있습니다.</div>
+          <div class="issue-fix">사용자에게 반환하는 에러 메시지는 일반적인 표현을 사용하고, 상세 내용은 서버 로그에만 기록하세요.</div>
+        </div>
+      </div>
+      <div class="issue i" data-sev="i" data-consensus="false">
+        <div class="issue-top" onclick="toggleIssue(this)">
+          <span class="issue-chevron">▶</span>
+          <span class="sev-tag i">참고</span>
+          <span class="issue-loc">L8</span>
+          <span class="issue-name">타입 단언(as) 사용</span>
+          <span class="badge solo">🐶 고유 (Claude)</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-desc">req.body를 any로 단언하고 있습니다. 타입 안전성이 낮아집니다.</div>
+          <div class="issue-fix">Zod 또는 io-ts 같은 런타임 유효성 검사 라이브러리로 req.body 타입을 명시적으로 파싱하면 더 안전합니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim anim-3" id="conflicts">
+    <div class="section-title">의견이 갈린 것들 <span class="count">1</span></div>
+
+    <div class="conflict-card">
+      <div class="conflict-top">
+        <span class="icon">⚡</span>
+        <div>
+          <div class="conflict-title">이메일 중복 확인 로직의 대소문자 처리</div>
+        </div>
+      </div>
+      <div class="conflict-body">
+        <div class="opinions">
+          <div class="op"><span class="op-name g">🐻 Gemini</span> 이메일 비교 시 대소문자를 무시해야 합니다. RFC 5321에 따르면 로컬 파트는 대소문자를 구분할 수 있지만, 실제 대부분의 서비스는 대소문자 무관하게 처리합니다.</div>
+          <div class="op"><span class="op-name p">🐱 Copilot</span> 현재 구현대로 대소문자를 구분하는 것이 표준에 맞습니다. 변경 시 기존 사용자 데이터와의 정합성 문제가 생길 수 있습니다.</div>
+        </div>
+        <div class="verdict">
+          <div class="verdict-label">🎙️ MC 판정</div>
+          서비스 요구사항에 따라 다르나, 사용자 경험 관점에서 대소문자 무관 처리(toLowerCase 적용)가 일반적으로 권장됩니다. 단, DB 인덱스와 기존 데이터 마이그레이션 계획이 필요합니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim anim-4">
+    <div class="section-title">참고만 하세요 <span class="count">1</span></div>
+    <div class="info-item">🔵 <code>src/utils/validator.ts</code> validateEmail 함수를 별도 모듈로 분리한 것은 좋은 설계입니다. 향후 재사용성이 높아집니다. <span class="badge solo">🐶 Claude</span></div>
+  </div>
+
+  <div class="section anim anim-5" id="actions">
+    <div class="section-title">액션 아이템</div>
+    <div class="actions-card">
+      <div class="actions-header">
+        <span class="actions-title">할 일 목록</span>
+        <div style="display:flex;align-items:center;">
+          <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+          <span class="progress-text" id="progressText">0/4</span>
+        </div>
+      </div>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🔴</span><span class="act-text"><span class="file-dot" style="background: var(--error);"></span><strong>src/api/user.ts</strong> — L42 — SQL Injection: 쿼리 파라미터 바인딩으로 교체</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🔴</span><span class="act-text"><span class="file-dot" style="background: var(--error);"></span><strong>src/utils/validator.ts</strong> — L15 — ReDoS: 정규식을 단순화하거나 validator.js 사용</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><span class="file-dot" style="background: var(--warning);"></span><strong>src/api/user.ts</strong> — L68 — 응답 DTO 적용으로 민감 필드 제외</span></label>
+      <label class="act"><input type="checkbox" onchange="updateProgress()"><span class="act-sev">🟡</span><span class="act-text"><span class="file-dot" style="background: var(--warning);"></span><strong>src/utils/validator.ts</strong> — L30 — 에러 메시지를 일반적인 표현으로 교체</span></label>
+    </div>
+  </div>
+
+  <div class="footer">
+    Generated by Agora · 2026-04-23 10:30 · 총 소요 38s · Gemini (14s) + Copilot (12s) + MC (12s)
+  </div>
+</div>
+
+<script>
+function toggleIssue(el) {
+  el.closest('.issue').classList.toggle('open')
+}
+
+function updateProgress() {
+  const all = document.querySelectorAll('.act input')
+  const checked = document.querySelectorAll('.act input:checked')
+  const pct = (checked.length / all.length * 100).toFixed(0)
+  document.getElementById('progressFill').style.width = pct + '%'
+  document.getElementById('progressText').textContent = checked.length + '/' + all.length
+  all.forEach(cb => cb.closest('.act').classList.toggle('done', cb.checked))
+}
+
+// Copy prompt to clipboard
+function copyPrompt(btn) {
+  const text = btn.getAttribute('data-prompt')
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.innerHTML
+    const isSmall = btn.classList.contains('copy-sm')
+    btn.innerHTML = isSmall ? '✅ 복사됨' : '✅ 복사됨! Claude Code에 붙여넣기하세요'
+    btn.classList.add('copied')
+    setTimeout(() => {
+      btn.innerHTML = original
+      btn.classList.remove('copied')
+    }, 2000)
+  })
+}
+
+// Theme toggle
+function toggleTheme() {
+  const html = document.documentElement
+  const current = html.getAttribute('data-theme') || 'dark'
+  const next = current === 'dark' ? 'light' : 'dark'
+  html.setAttribute('data-theme', next)
+  document.getElementById('themeKnob').textContent = next === 'dark' ? '🌙' : '☀️'
+}
+
+// Toggle all expand/collapse
+let allExpanded = false
+function toggleAll() {
+  allExpanded = !allExpanded
+  document.querySelectorAll('.issue').forEach(issue => {
+    issue.classList.toggle('open', allExpanded)
+  })
+  document.querySelector('.toggle-all').textContent = allExpanded ? '전체 접기' : '전체 펼치기'
+}
+
+// Filter (with empty file group hiding)
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    const f = btn.dataset.filter
+    document.querySelectorAll('.issue').forEach(issue => {
+      if (f === 'all') { issue.style.display = '' }
+      else if (f === 'consensus') { issue.style.display = issue.dataset.consensus === 'true' ? '' : 'none' }
+      else { issue.style.display = issue.dataset.sev === f ? '' : 'none' }
+    })
+    // Hide empty file groups
+    document.querySelectorAll('.fgroup').forEach(fg => {
+      const visible = fg.querySelectorAll('.issue:not([style*="display: none"])')
+      fg.style.display = visible.length === 0 ? 'none' : ''
+    })
+  })
+})
+
+// Smooth scroll
+document.querySelectorAll('.nav-pill').forEach(pill => {
+  pill.addEventListener('click', e => {
+    e.preventDefault()
+    document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'))
+    pill.classList.add('active')
+    const target = document.querySelector(pill.getAttribute('href'))
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+})
+</script>
+</body>
+</html>
