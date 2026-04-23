@@ -94,7 +94,15 @@ function spawnCLI(command: string, args: string[], prompt: string): Promise<stri
     let stdout = ''
     let stderr = ''
 
-    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+    proc.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString()
+      if (stdout.length > MAX_BUFFER) {
+        proc.kill('SIGTERM')
+        const err = new Error(`stdout exceeded ${MAX_BUFFER} bytes`) as NodeJS.ErrnoException
+        err.code = 'ERR_BUFFER_OVERFLOW'
+        reject(err)
+      }
+    })
     proc.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
 
     if (prompt) {
@@ -343,7 +351,14 @@ async function main() {
 }
 
 // 직접 실행 시에만 main 호출 (테스트에서는 import만)
-const isDirectRun = process.argv[1]?.endsWith('agora-review.ts')
+const isDirectRun = /agora-review\.(ts|js)$/.test(process.argv[1] ?? '')
 if (isDirectRun) {
-  main()
+  main().catch((err: unknown) => {
+    console.error(JSON.stringify({
+      results: [],
+      warnings: [`예기치 못한 오류: ${err instanceof Error ? err.message : String(err)}`],
+      diffLineCount: 0,
+    }))
+    process.exit(1)
+  })
 }
