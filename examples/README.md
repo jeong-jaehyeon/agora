@@ -10,5 +10,5 @@
 ## HTML 리포트 재생성
 
 ```bash
-npx tsx scripts/generate-report.ts examples/sample-data.json examples/sample-report.html
+npx tsx scripts/generate-report.ts examples/sample-data.json -o examples/sample-report.html
 ```

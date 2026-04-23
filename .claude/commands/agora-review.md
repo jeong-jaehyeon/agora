@@ -620,9 +620,9 @@ MC 재검증 시 이 스크립트를 호출하여 cross-project 전제를 검증
     "fileCount": 6, "diffLines": 302
   },
   "participants": [
-    { "key": "c", "icon": "🐶", "name": "Claude", "model": "{세션 모델명}" },
-    { "key": "g", "icon": "🐻", "name": "Gemini", "model": "{선택한 모델}" },
-    { "key": "p", "icon": "🐱", "name": "Copilot", "model": "{선택한 모델}" },
+    { "key": "claude", "icon": "🐶", "name": "Claude", "model": "{세션 모델명}" },
+    { "key": "gemini", "icon": "🐻", "name": "Gemini", "model": "{선택한 모델}" },
+    { "key": "copilot", "icon": "🐱", "name": "Copilot", "model": "{선택한 모델}" },
     { "key": "mc", "icon": "🎙️", "name": "MC", "model": "{세션 모델명}" }
   ],
   "duration": {
@@ -652,9 +652,9 @@ MC 재검증 시 이 스크립트를 호출하여 cross-project 전제를 검증
     {
       "title": "{파일:줄 — 주제}",
       "opinions": [
-        { "key": "g", "icon": "🐻", "name": "Gemini", "text": "{의견}" },
-        { "key": "p", "icon": "🐱", "name": "Copilot", "text": "{의견}" },
-        { "key": "c", "icon": "🐶", "name": "Claude", "text": "{의견}" }
+        { "key": "gemini", "icon": "🐻", "name": "Gemini", "text": "{의견}" },
+        { "key": "copilot", "icon": "🐱", "name": "Copilot", "text": "{의견}" },
+        { "key": "claude", "icon": "🐶", "name": "Claude", "text": "{의견}" }
       ],
       "verdict": "{MC 판정. 프로젝트 컨텍스트 기반.}"
     }
