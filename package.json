@@ -2,7 +2,6 @@
   "name": "agora",
   "version": "0.1.0",
   "description": "멀티 AI 코드 리뷰 & 토론 오케스트레이터",
-  "private": true,
   "type": "module",
   "engines": {
     "node": ">=20.0.0"
